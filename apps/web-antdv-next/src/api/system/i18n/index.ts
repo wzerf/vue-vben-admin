@@ -1,8 +1,14 @@
 import type {
   CreateI18nLocaleRequest,
   CreateI18nTranslationRequest,
+  I18nExportData,
+  I18nExportParams,
+  I18nImportRequest,
+  I18nImportResponse,
   I18nLocale,
   I18nLocaleQuery,
+  I18nSyncRequest,
+  I18nSyncResponse,
   I18nTranslation,
   I18nTranslationBatchUpsertByKeyRequest,
   I18nTranslationBatchUpsertByKeyResponse,
@@ -124,6 +130,32 @@ export function batchUpsertI18nTranslationByKeyApi(
 ) {
   return requestClient.post<I18nTranslationBatchUpsertByKeyResponse>(
     '/system/i18n-translation/batch-upsert-by-key',
+    body,
+  );
+}
+
+/** 导出语言+翻译（raw / simple JSON） */
+export function exportI18nApi(params: I18nExportParams) {
+  return requestClient.get<I18nExportData>('/system/i18n-locale/export', {
+    params: {
+      ids: params.ids.join(','),
+      type: params.type,
+    },
+  });
+}
+
+/** 导入 JSON（raw / simple） */
+export function importI18nApi(body: I18nImportRequest) {
+  return requestClient.post<I18nImportResponse>(
+    '/system/i18n-translation/import',
+    body,
+  );
+}
+
+/** 前端静态 i18n JSON 同步到后端 */
+export function syncI18nApi(body: I18nSyncRequest) {
+  return requestClient.post<I18nSyncResponse>(
+    '/system/i18n-translation/sync',
     body,
   );
 }

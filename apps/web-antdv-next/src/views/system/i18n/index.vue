@@ -5,12 +5,14 @@ import type { I18nLocale, I18nTranslation } from '#/api/system/i18n';
 import { onMounted, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
+import { i18n } from '@vben/locales';
 
 import {
   Button,
   Card,
   Col,
   message,
+  Modal,
   Popconfirm,
   Row,
   Space,
@@ -23,9 +25,11 @@ import {
   batchI18nLocaleApi,
   batchI18nTranslationApi,
   deleteI18nTranslationApi,
+  exportI18nApi,
   fetchAllI18nLocalesApi,
   fetchI18nLocaleListApi,
   fetchI18nTranslationListApi,
+  syncI18nApi,
 } from '#/api/system/i18n';
 import {
   useLocaleColumns,
@@ -34,6 +38,7 @@ import {
   useTranslationSearchSchema,
 } from '#/views/system/i18n/data';
 import Form from '#/views/system/i18n/modules/form.vue';
+import ImportModal from '#/views/system/i18n/modules/import-modal.vue';
 import TranslationKeyDrawer from '#/views/system/i18n/modules/translation-key-drawer.vue';
 
 defineOptions({ name: 'SystemI18n' });
@@ -54,6 +59,11 @@ const entryLocaleCode = ref<string | undefined>(undefined);
 const localeSelectedIds = ref<Set<number>>(new Set());
 const translationSelectedIds = ref<Set<number>>(new Set());
 const bulkLoading = ref({ locale: false, translation: false });
+
+const exportType = ref<'raw' | 'simple'>('simple');
+const importModalOpen = ref(false);
+const exportModalOpen = ref(false);
+const syncing = ref(false);
 
 const [LocaleFormDrawer, localeFormDrawerApi] = useVbenDrawer({
   connectedComponent: Form,
@@ -263,6 +273,83 @@ async function bulkTranslationAction(action: BulkAction) {
   }
 }
 
+async function handleSync() {
+  syncing.value = true;
+  try {
+    // 从 i18n 实例获取所有已加载的语言资源
+    const messages: Record<string, any> =
+      (i18n.global.messages as any).value ?? {};
+    const locales: Record<string, Record<string, string>> = {};
+
+    for (const [lang, nsMap] of Object.entries(messages)) {
+      if (!nsMap || typeof nsMap !== 'object') continue;
+      const flat: Record<string, string> = {};
+      for (const [ns, kv] of Object.entries(nsMap as Record<string, any>)) {
+        if (!kv || typeof kv !== 'object') continue;
+        for (const [k, v] of Object.entries(kv)) {
+          if (typeof v === 'string') {
+            flat[`${ns}.${k}`] = v;
+          }
+        }
+      }
+      if (Object.keys(flat).length > 0) {
+        locales[lang] = flat;
+      }
+    }
+
+    if (Object.keys(locales).length === 0) {
+      message.warning('未找到可同步的前端翻译数据');
+      return;
+    }
+
+    await syncI18nApi({ locales });
+    message.success('前端翻译已同步到后端');
+    // 刷新翻译列表
+    translationGridApi.reload();
+  } catch (error: any) {
+    message.error(`同步失败：${error.message ?? '未知错误'}`);
+  } finally {
+    syncing.value = false;
+  }
+}
+
+function openImportModal() {
+  importModalOpen.value = true;
+}
+
+function openExportModal() {
+  if (localeSelectedIds.value.size === 0) {
+    message.warning('请先勾选要导出的语言');
+    return;
+  }
+  exportModalOpen.value = true;
+}
+
+async function confirmExport() {
+  const ids = [...localeSelectedIds.value];
+  try {
+    const data = await exportI18nApi({ ids, type: exportType.value });
+    const blob = new Blob([JSON.stringify(data, null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `i18n-export-${exportType.value}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    message.success('导出成功');
+    exportModalOpen.value = false;
+  } catch (error: any) {
+    message.error(`导出失败：${error.message ?? '未知错误'}`);
+  }
+}
+
+function onImportSuccess() {
+  localeGridApi.reload();
+  translationGridApi.reload();
+}
+
 onMounted(async () => {
   // 预热默认语言的全量翻译 key, 让新建翻译时去重校验有数据可用
   try {
@@ -283,10 +370,11 @@ onMounted(async () => {
               <Space :size="8" align="center">
                 <span
                   v-if="localeSelectedIds.size > 0"
-                  style="font-size: 12px; color: rgb(0 0 0 / 45%)"
+                  class="text-xs"
+                  style="color: var(--ant-color-text-secondary)"
                 >
                   已选
-                  <strong style="color: rgb(0 0 0 / 85%)">{{
+                  <strong style="color: var(--ant-color-text)">{{
                     localeSelectedIds.size
                   }}</strong>
                   条
@@ -322,6 +410,29 @@ onMounted(async () => {
                     批量删除
                   </Button>
                 </Popconfirm>
+                <!-- 同步 / 导入 / 导出 -->
+                <Button
+                  v-if="localeSelectedIds.size === 0"
+                  size="small"
+                  :loading="syncing"
+                  @click="handleSync"
+                >
+                  前端同步
+                </Button>
+                <Button
+                  v-if="localeSelectedIds.size === 0"
+                  size="small"
+                  @click="openImportModal"
+                >
+                  导入
+                </Button>
+                <Button
+                  size="small"
+                  :disabled="localeSelectedIds.size === 0"
+                  @click="openExportModal"
+                >
+                  导出
+                </Button>
                 <Button
                   v-if="localeSelectedIds.size === 0"
                   type="primary"
@@ -404,10 +515,11 @@ onMounted(async () => {
               <Space :size="8" align="center">
                 <span
                   v-if="translationSelectedIds.size > 0"
-                  style="font-size: 12px; color: rgb(0 0 0 / 45%)"
+                  class="text-xs"
+                  style="color: var(--ant-color-text-secondary)"
                 >
                   已选
-                  <strong style="color: rgb(0 0 0 / 85%)">{{
+                  <strong style="color: var(--ant-color-text)">{{
                     translationSelectedIds.size
                   }}</strong>
                   条
@@ -483,6 +595,34 @@ onMounted(async () => {
     </Row>
 
     <LocaleFormDrawer kind="locale" @success="onLocaleSaved" />
+    <ImportModal v-model:open="importModalOpen" @success="onImportSuccess" />
+    <Modal
+      v-model:open="exportModalOpen"
+      title="导出 JSON"
+      :width="400"
+      :destroy-on-close="true"
+      ok-text="导出"
+      cancel-text="取消"
+      @ok="confirmExport"
+    >
+      <div class="flex items-center gap-3">
+        <span class="text-sm" style="color: var(--ant-color-text-secondary)">导出格式</span>
+        <Button
+          size="small"
+          :type="exportType === 'simple' ? 'primary' : 'default'"
+          @click="exportType = 'simple'"
+        >
+          Simple
+        </Button>
+        <Button
+          size="small"
+          :type="exportType === 'raw' ? 'primary' : 'default'"
+          @click="exportType = 'raw'"
+        >
+          Raw
+        </Button>
+      </div>
+    </Modal>
     <TranslationKeyDrawer
       v-model:open="translationDrawerOpen"
       :source-row="editingTranslation"

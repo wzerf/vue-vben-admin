@@ -355,10 +355,11 @@ function setIncludeGeneralField(value: boolean) {
               <Space :size="8" align="center">
                 <span
                   v-if="typeSelectedIds.size > 0"
-                  style="font-size: 12px; color: rgb(0 0 0 / 45%)"
+                  class="text-xs"
+                  style="color: var(--ant-color-text-secondary)"
                 >
                   已选
-                  <strong style="color: rgb(0 0 0 / 85%)">{{
+                  <strong style="color: var(--ant-color-text)">{{
                     typeSelectedIds.size
                   }}</strong>
                   条
@@ -531,10 +532,11 @@ function setIncludeGeneralField(value: boolean) {
               <Space :size="8" align="center">
                 <span
                   v-if="entrySelectedIds.size > 0"
-                  style="font-size: 12px; color: rgb(0 0 0 / 45%)"
+                  class="text-xs"
+                  style="color: var(--ant-color-text-secondary)"
                 >
                   已选
-                  <strong style="color: rgb(0 0 0 / 85%)">{{
+                  <strong style="color: var(--ant-color-text)">{{
                     entrySelectedIds.size
                   }}</strong>
                   条
