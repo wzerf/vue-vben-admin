@@ -2,62 +2,12 @@ import type { VbenFormProps } from '#/adapter/form';
 import type { VxeTableGridOptions } from '#/adapter/vxe-table';
 import type { I18nLocale } from '#/api/system/i18n';
 
-import { z } from '#/adapter/form';
 import { fetchAllI18nLocalesApi } from '#/api/system/i18n';
 
 /* ============================================================
  * 语言编码校验：BCP-47 风格（如 zh-CN / en-US / ja-JP）
  * ============================================================ */
 export const I18N_LOCALE_CODE_PATTERN = /^[A-Za-z]{2,3}(-[A-Za-z]{2,4})?$/;
-
-/* ============================================================
- * 语言 form schema（抽屉内表单）
- * ============================================================ */
-export function useLocaleFormSchema(): VbenFormProps['schema'] {
-  return [
-    {
-      component: 'Input',
-      fieldName: 'code',
-      label: '语言代码',
-      rules: z
-        .string()
-        .min(1, '请输入语言代码')
-        .regex(I18N_LOCALE_CODE_PATTERN, '形如 zh-CN / en-US / ja-JP'),
-      componentProps: { placeholder: '例如 zh-CN' },
-    },
-    {
-      component: 'Input',
-      fieldName: 'name',
-      label: '语言名称',
-      rules: z.string().min(1, '请输入语言名称').max(64, '最长 64 字符'),
-    },
-    {
-      component: 'InputNumber',
-      fieldName: 'sort',
-      label: '排序',
-      defaultValue: 0,
-      componentProps: { placeholder: '升序排序' },
-    },
-    {
-      component: 'Textarea',
-      fieldName: 'remark',
-      label: '备注',
-      componentProps: { placeholder: '选填', rows: 3 },
-    },
-    {
-      component: 'Switch',
-      fieldName: 'isDefault',
-      label: '设为默认语言',
-      defaultValue: false,
-    },
-    {
-      component: 'Switch',
-      fieldName: 'isEnabled',
-      label: '启用',
-      defaultValue: true,
-    },
-  ];
-}
 
 /* ============================================================
  * 语言 列表检索 schema

@@ -19,6 +19,7 @@ import {
   Space,
   Switch,
   Tag,
+  theme,
   Tooltip,
   TypographyParagraph,
 } from 'antdv-next';
@@ -52,6 +53,8 @@ const emits = defineEmits<{
   (e: 'update:open', value: boolean): void;
   (e: 'success'): void;
 }>();
+
+const { token } = theme.useToken();
 
 interface RowState {
   localeId: number;
@@ -305,7 +308,7 @@ defineExpose({ open: () => drawerApi.open(), close: () => drawerApi.close() });
 
       <div>
         <div class="mb-2 text-sm">
-          <span class="text-red-500">*</span> 翻译键
+          <span :style="{ color: token.colorError }">*</span> 翻译键
           <Tag v-if="!isEdit && keyDuplicate" color="warning">
             该 key 在默认语言已存在
           </Tag>
@@ -315,10 +318,7 @@ defineExpose({ open: () => drawerApi.open(), close: () => drawerApi.close() });
           placeholder="例如 menu.user.create"
           :maxlength="255"
         />
-        <TypographyParagraph
-          type="secondary"
-          style="margin-top: 4px; font-size: 12px"
-        >
+        <TypographyParagraph type="secondary" class="mt-1 mb-0 text-xs">
           建议使用点分命名空间（如 menu.user.create），修改 key 会
           同步影响所有语言版本的同一 key 行
         </TypographyParagraph>
@@ -343,10 +343,7 @@ defineExpose({ open: () => drawerApi.open(), close: () => drawerApi.close() });
             {{ enabledCount }} / {{ totalLocales }} 启用
           </Tag>
         </Space>
-        <TypographyParagraph
-          type="secondary"
-          style="margin-top: 4px; font-size: 12px"
-        >
+        <TypographyParagraph type="secondary" class="mt-1 mb-0 text-xs">
           总开关会联动所有可见语言行；混合态保持原值
         </TypographyParagraph>
       </div>
@@ -362,8 +359,10 @@ defineExpose({ open: () => drawerApi.open(), close: () => drawerApi.close() });
             :style="{
               padding: '10px 12px',
               borderRadius: '6px',
-              border: '1px solid #f0f0f0',
-              background: row.isDefault ? 'rgba(24,144,255,0.04)' : '#fafafa',
+              border: `1px solid ${token.colorBorderSecondary}`,
+              background: row.isDefault
+                ? token.colorPrimaryBg
+                : token.colorFillQuaternary,
             }"
           >
             <Col flex="160px">
@@ -426,15 +425,15 @@ defineExpose({ open: () => drawerApi.open(), close: () => drawerApi.close() });
       </div>
 
       <div
-        style="
-          padding: 10px 12px;
-          margin-top: 16px;
-          font-size: 12px;
-          color: rgb(0 0 0 / 65%);
-          background: rgb(24 144 255 / 4%);
-          border-left: 3px solid #1677ff;
-          border-radius: 4px;
-        "
+        :style="{
+          padding: '10px 12px',
+          marginTop: '16px',
+          fontSize: '12px',
+          color: token.colorTextSecondary,
+          background: token.colorPrimaryBg,
+          borderLeft: `3px solid ${token.colorPrimary}`,
+          borderRadius: '4px',
+        }"
       >
         填了的语言会写入对应行；留空则跳过。默认语言（★）必须。
       </div>
