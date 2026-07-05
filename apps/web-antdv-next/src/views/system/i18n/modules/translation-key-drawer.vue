@@ -12,12 +12,11 @@ import { useVbenDrawer } from '@vben/common-ui';
 import {
   Alert,
   Button,
-  Col,
   Input,
   message,
-  Row,
   Space,
   Switch,
+  Table,
   Tag,
   theme,
   Tooltip,
@@ -62,6 +61,7 @@ interface RowState {
   localeName: string;
   isDefault: boolean;
   value: string;
+  remark: string;
   enabled: boolean;
   deleted: boolean;
   existingId?: number;
@@ -97,6 +97,14 @@ const keyDuplicate = computed(
     existingKeys.value.has(translationKey.value),
 );
 
+const columns = [
+  { key: 'locale', title: '语言', width: 150 },
+  { key: 'value', title: '翻译值', minWidth: 160 },
+  { key: 'remark', title: '备注', width: 140 },
+  { key: 'enabled', title: '启用', width: 72, align: 'center' as const },
+  { key: 'action', title: '操作', width: 52, align: 'center' as const },
+];
+
 const [InnerDrawer, drawerApi] = useVbenDrawer({
   // 关闭逻辑：直接关闭抽屉
   onCancel() {
@@ -129,6 +137,7 @@ const [InnerDrawer, drawerApi] = useVbenDrawer({
       isEnabled: 0 | 1;
       localeCode?: string;
       localeId: number;
+      remark: string;
       value: string;
     }> = [];
     if (isEdit.value) {
@@ -162,6 +171,7 @@ const [InnerDrawer, drawerApi] = useVbenDrawer({
           localeName: l.name,
           isDefault: l.isDefault === 1,
           value: found?.value ?? '',
+          remark: found?.remark ?? '',
           enabled: found?.isEnabled === 1,
           deleted: false,
           existingId: found?.id,
@@ -248,6 +258,7 @@ const handleOk = async () => {
     .map((r) => ({
       localeId: r.localeId,
       value: r.value.trim(),
+      remark: r.remark.trim() || undefined,
       isEnabled: r.enabled ? 1 : 0,
     }));
 
@@ -350,22 +361,16 @@ defineExpose({ open: () => drawerApi.open(), close: () => drawerApi.close() });
 
       <div>
         <div class="mb-2 text-sm">各语言值</div>
-        <Space direction="vertical" style="width: 100%" :size="10">
-          <Row
-            v-for="row in visibleRows"
-            :key="row.localeId"
-            :gutter="12"
-            align="middle"
-            :style="{
-              padding: '10px 12px',
-              borderRadius: '6px',
-              border: `1px solid ${token.colorBorderSecondary}`,
-              background: row.isDefault
-                ? token.colorPrimaryBg
-                : token.colorFillQuaternary,
-            }"
-          >
-            <Col flex="160px">
+        <Table
+          :columns="columns"
+          :data-source="visibleRows"
+          :pagination="false"
+          row-key="localeId"
+          size="small"
+          :scroll="{ y: 360 }"
+        >
+          <template #bodyCell="{ column, record: row }">
+            <template v-if="column.key === 'locale'">
               <Space :size="6" align="center">
                 <Tag
                   :color="row.isDefault ? 'blue' : 'default'"
@@ -383,45 +388,47 @@ defineExpose({ open: () => drawerApi.open(), close: () => drawerApi.close() });
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
-                    minWidth: 0,
+                    maxWidth: '60px',
                   }"
                 >
                   {{ row.localeName }}
                 </span>
                 <Tag v-if="row.isDefault" color="blue">★</Tag>
               </Space>
-            </Col>
-            <Col flex="auto">
+            </template>
+            <template v-else-if="column.key === 'value'">
               <Input
                 v-model:value="row.value"
                 :placeholder="
                   row.isDefault ? '默认语言必填' : '翻译值（留空跳过）'
                 "
-                :style="{ borderRadius: '4px' }"
               />
-            </Col>
-            <Col flex="84px">
+            </template>
+            <template v-else-if="column.key === 'remark'">
+              <Input v-model:value="row.remark" placeholder="选填" />
+            </template>
+            <template v-else-if="column.key === 'enabled'">
               <Switch
                 v-model:checked="row.enabled"
-                checked-children="启用"
-                un-checked-children="禁用"
+                size="small"
                 @change="(next: boolean) => handleRowEnabledChange(row, next)"
               />
-            </Col>
-            <Col flex="40px" style="text-align: right">
+            </template>
+            <template v-else-if="column.key === 'action'">
               <Tooltip title="删除该语言行">
                 <Button
                   danger
                   type="text"
                   shape="circle"
+                  size="small"
                   @click="handleRowDelete(row)"
                 >
                   ×
                 </Button>
               </Tooltip>
-            </Col>
-          </Row>
-        </Space>
+            </template>
+          </template>
+        </Table>
       </div>
 
       <div
