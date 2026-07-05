@@ -63,9 +63,11 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
   // 请求头处理
   client.addRequestInterceptor({
     fulfilled: async (config) => {
-      const accessStore = useAccessStore();
-
-      config.headers.Authorization = formatToken(accessStore.accessToken);
+      // public 端点不需要登录态
+      if (!config.url?.startsWith('/public/')) {
+        const accessStore = useAccessStore();
+        config.headers.Authorization = formatToken(accessStore.accessToken);
+      }
       config.headers['Accept-Language'] = preferences.app.locale;
       return config;
     },

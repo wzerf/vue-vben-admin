@@ -8,6 +8,7 @@ import { ref } from 'vue';
 
 import {
   $t,
+  i18n as coreI18n,
   setupI18n as coreSetup,
   loadLocalesMapFromDir,
 } from '@vben/locales';
@@ -16,6 +17,8 @@ import { preferences } from '@vben/preferences';
 import antdEnLocale from 'antdv-next/dist/locale/en_US';
 import antdDefaultLocale from 'antdv-next/dist/locale/zh_CN';
 import dayjs from 'dayjs';
+
+import { fetchBackendI18n } from './backend';
 
 const antdLocale = ref<Locale>(antdDefaultLocale);
 
@@ -35,6 +38,10 @@ async function loadMessages(lang: SupportedLanguagesType) {
     localesMap[lang]?.(),
     loadThirdPartyMessage(lang),
   ]);
+
+  // 后台拉取后端翻译，不阻塞 UI
+  fetchBackendI18n(coreI18n, lang);
+
   return appLocaleMessages?.default;
 }
 
