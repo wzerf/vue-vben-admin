@@ -349,8 +349,8 @@ function setIncludeGeneralField(value: boolean) {
   <Page auto-content-height>
     <Row :gutter="16">
       <Col :span="24" :md="12">
-        <Card title="字典类型">
-          <TypeGrid table-title="字典类型列表">
+        <Card>
+          <TypeGrid table-title="字典类型">
             <template #toolbar-tools>
               <Space :size="8" align="center">
                 <span
@@ -435,20 +435,21 @@ function setIncludeGeneralField(value: boolean) {
 
       <Col :span="24" :md="12">
         <Card>
-          <template #title>
-            <Space align="center" :size="8">
-              <span>字典数据</span>
-              <Tag
-                v-if="selectedType"
-                color="blue"
-                closable
-                @close="clearEntrySelection"
-              >
-                {{ selectedType.name }}（{{ selectedType.code }}）
-              </Tag>
-            </Space>
-          </template>
-          <EntryGrid table-title="字典条目列表">
+          <EntryGrid>
+            <template #table-title>
+              <Space align="center" :size="8">
+                <span style="font-size: 16px">字典数据</span>
+                <Tag
+                  v-if="selectedType"
+                  color="blue"
+                  style="font-size: 14px"
+                  closable
+                  @close="clearEntrySelection"
+                >
+                  {{ selectedType.name }}（{{ selectedType.code }}）
+                </Tag>
+              </Space>
+            </template>
             <template #dict_platform="{ row }">
               <Tag
                 :color="

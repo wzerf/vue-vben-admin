@@ -277,8 +277,8 @@ onMounted(async () => {
   <Page auto-content-height>
     <Row :gutter="16">
       <Col :span="24" :md="12">
-        <Card title="语言">
-          <LocaleGrid table-title="语言列表">
+        <Card>
+          <LocaleGrid table-title="语言">
             <template #toolbar-tools>
               <Space :size="8" align="center">
                 <span
@@ -374,20 +374,21 @@ onMounted(async () => {
 
       <Col :span="24" :md="12">
         <Card>
-          <template #title>
-            <Space align="center" :size="8">
-              <span>翻译</span>
-              <Tag
-                v-if="selectedLocale"
-                color="blue"
-                closable
-                @close="clearTranslationSelection"
-              >
-                {{ selectedLocale.name }}（{{ selectedLocale.code }}）
-              </Tag>
-            </Space>
-          </template>
-          <TranslationGrid table-title="翻译列表">
+          <TranslationGrid>
+            <template #table-title>
+              <Space align="center" :size="8">
+                <span style="font-size: 16px">翻译</span>
+                <Tag
+                  v-if="selectedLocale"
+                  color="blue"
+                  closable
+                  style="font-size: 14px"
+                  @close="clearTranslationSelection"
+                >
+                  {{ selectedLocale.name }}（{{ selectedLocale.code }}）
+                </Tag>
+              </Space>
+            </template>
             <template #translation_status="{ row }">
               <Tag
                 :color="
