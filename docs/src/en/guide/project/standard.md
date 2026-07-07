@@ -126,7 +126,7 @@ If you want to disable Git commit standard checks, there are two ways:
 ::: code-group
 
 ```bash [Temporary disable]
-git commit -m 'feat: add home page' --no-verify
+git commit -m 'feat: add home page'
 ```
 
 ```yaml [Long-term disable]
@@ -204,7 +204,7 @@ pnpm exec lefthook install
 If you want to temporarily disable lefthook, use:
 
 ```bash
-git commit -m 'feat: add home page' --no-verify
+git commit -m 'feat: add home page'
 ```
 
 #### How to Modify lefthook Configuration
