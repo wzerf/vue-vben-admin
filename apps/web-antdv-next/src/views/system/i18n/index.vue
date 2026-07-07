@@ -5,7 +5,6 @@ import type { I18nLocale, I18nTranslation } from '#/api/system/i18n';
 import { onMounted, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import { i18n } from '@vben/locales';
 
 import {
   Button,
@@ -29,7 +28,6 @@ import {
   fetchAllI18nLocalesApi,
   fetchI18nLocaleListApi,
   fetchI18nTranslationListApi,
-  syncI18nApi,
 } from '#/api/system/i18n';
 import {
   useLocaleColumns,
@@ -63,7 +61,6 @@ const bulkLoading = ref({ locale: false, translation: false });
 const exportType = ref<'raw' | 'simple'>('simple');
 const importModalOpen = ref(false);
 const exportModalOpen = ref(false);
-const syncing = ref(false);
 
 const [LocaleFormDrawer, localeFormDrawerApi] = useVbenDrawer({
   connectedComponent: Form,
@@ -273,46 +270,6 @@ async function bulkTranslationAction(action: BulkAction) {
   }
 }
 
-async function handleSync() {
-  syncing.value = true;
-  try {
-    // 从 i18n 实例获取所有已加载的语言资源
-    const messages: Record<string, any> =
-      (i18n.global.messages as any).value ?? {};
-    const locales: Record<string, Record<string, string>> = {};
-
-    for (const [lang, nsMap] of Object.entries(messages)) {
-      if (!nsMap || typeof nsMap !== 'object') continue;
-      const flat: Record<string, string> = {};
-      for (const [ns, kv] of Object.entries(nsMap as Record<string, any>)) {
-        if (!kv || typeof kv !== 'object') continue;
-        for (const [k, v] of Object.entries(kv)) {
-          if (typeof v === 'string') {
-            flat[`${ns}.${k}`] = v;
-          }
-        }
-      }
-      if (Object.keys(flat).length > 0) {
-        locales[lang] = flat;
-      }
-    }
-
-    if (Object.keys(locales).length === 0) {
-      message.warning('未找到可同步的前端翻译数据');
-      return;
-    }
-
-    await syncI18nApi({ locales });
-    message.success('前端翻译已同步到后端');
-    // 刷新翻译列表
-    translationGridApi.reload();
-  } catch (error: any) {
-    message.error(`同步失败：${error.message ?? '未知错误'}`);
-  } finally {
-    syncing.value = false;
-  }
-}
-
 function openImportModal() {
   importModalOpen.value = true;
 }
@@ -410,15 +367,7 @@ onMounted(async () => {
                     批量删除
                   </Button>
                 </Popconfirm>
-                <!-- 同步 / 导入 / 导出 -->
-                <Button
-                  v-if="localeSelectedIds.size === 0"
-                  size="small"
-                  :loading="syncing"
-                  @click="handleSync"
-                >
-                  前端同步
-                </Button>
+                <!-- 导入 / 导出 -->
                 <Button
                   v-if="localeSelectedIds.size === 0"
                   size="small"
