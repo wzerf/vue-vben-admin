@@ -349,6 +349,11 @@ const [Step2Grid] = useVbenVxeGrid<StagedFile>({
     size: 'small',
     stripe: true,
     showOverflow: true,
+    // ponytail: 全局 vxe-table.minHeight=180(见 web-antdv-next/src/adapter/vxe-table.ts:75) 会让 body-wrapper
+    // 至少保留 180px，少数据(如只 1 行)时表现为表格下方大段空白。这里强制 1px 走 toNumber 分支,
+    // 实际高度由行数撑开。autoResize 同 PreviewGrid 开启,顺便对齐 modal 内宽自适应。
+    autoResize: true,
+    minHeight: 1,
     toolbarConfig: { enabled: false },
     pagerConfig: { enabled: false },
   } as VxeTableGridOptions<StagedFile>,
@@ -479,7 +484,7 @@ function handleClose() {
   <Modal
     title="导入 JSON"
     :open="props.open"
-    :width="1400"
+    :width="1200"
     :destroy-on-close="true"
     :footer="null"
     :mask-closable="false"
