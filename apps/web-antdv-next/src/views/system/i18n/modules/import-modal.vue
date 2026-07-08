@@ -55,7 +55,7 @@ const emits = defineEmits<{
 const step = ref(0);
 const format = ref<ImportFormat>('simple');
 const staged = ref<StagedFile[]>([]);
-const showChangedOnly = ref(true);
+const showChangedOnly = ref(false);
 const submitting = ref(false);
 
 const localeOptions = ref<Array<{ label: string; value: string }>>([]);
@@ -127,7 +127,7 @@ function reset() {
   step.value = 0;
   format.value = 'simple';
   staged.value = [];
-  showChangedOnly.value = true;
+  showChangedOnly.value = false;
   submitting.value = false;
   previewState.value = { loading: false, currentRows: [] };
 }
@@ -313,14 +313,15 @@ const previewColumns: VxeTableGridColumns<PreviewRow> = [
   {
     field: 'op',
     title: '变更类型',
-    minWidth: 100,
+    width: 80,
     slots: { default: 'cell-op' },
   },
   { field: 'localeCode', title: '语言代码', minWidth: 100 },
   {
     field: 'key',
     title: '翻译键',
-    minWidth: 200,
+    align: 'left',
+    width: 100,
     slots: { default: 'cell-key' },
   },
   {
@@ -359,13 +360,9 @@ const [Step2Grid] = useVbenVxeGrid<StagedFile>({
   } as VxeTableGridOptions<StagedFile>,
 });
 
-// 响应式：visiblePreviewRows 重算后同步进 _key(vxe-table keyField 要求单一字段)
-const previewRowsWithKey = computed(() =>
-  visiblePreviewRows.value.map((r, i) => ({
-    ...r,
-    _key: `${r.localeCode}-${r.key}-${r.sourceFile}-${i}`,
-  })),
-);
+// visiblePreviewRows 是 previewRows(已含 _rowKey) 的子集，_rowKey 在 merged 全局唯一，
+// 直接复用即可，无需再按 visible 索引重拼。
+const previewRowsWithKey = computed(() => visiblePreviewRows.value);
 
 // Step 3 Preview Grid
 // ponytail: 同上,tableData 类型容不下 ComputedRef,cast 一次
@@ -373,7 +370,7 @@ const [PreviewGrid, previewGridApi] = useVbenVxeGrid<PreviewRow>({
   tableData: previewRowsWithKey as unknown as PreviewRow[],
   gridOptions: {
     columns: previewColumns,
-    rowConfig: { keyField: '_key' },
+    rowConfig: { keyField: '_rowKey' },
     size: 'small',
     stripe: true,
     showOverflow: true,
@@ -712,22 +709,16 @@ function handleClose() {
           <div style="width: 100%">
             <PreviewGrid>
               <template #cell-op="{ row }">
-                <Tag
-                  v-if="
-                    row.duplicate &&
-                    row.oldValue === row.newValue &&
-                    row.oldValue !== undefined
-                  "
-                >
-                  未变更
-                </Tag>
-                <Tag v-else-if="row.op === 'create'" color="green">新增</Tag>
+                <Tag v-if="row.op === 'create'" color="green">新增</Tag>
                 <Tag v-else-if="row.op === 'update'" color="blue">修改</Tag>
-                <Tag v-else color="red">重复</Tag>
+                <Tag v-else>未变更</Tag>
               </template>
 
               <template #cell-key="{ row }">
                 <Space :size="4">
+                  <Tag v-if="row.duplicate" color="red" style="margin: 0">
+                    重复
+                  </Tag>
                   <span style="font-family: monospace">{{ row.key }}</span>
                   <Tooltip
                     v-if="row.oldIsEnabled !== undefined"
