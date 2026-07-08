@@ -240,8 +240,10 @@ function updateStaged(
     Pick<StagedFile, 'format' | 'localeCode' | 'payloadLocale' | 'prefix'>
   >,
 ) {
+  const current = staged.value[idx];
+  if (!current) return;
   const next = [...staged.value];
-  next[idx] = { ...next[idx]!, ...patch } as StagedFile;
+  next[idx] = { ...current, ...patch } as StagedFile;
   staged.value = next;
 }
 
@@ -381,8 +383,9 @@ const previewColumns = computed(() => [
     customRender: ({ record }: { record: PreviewRow }) =>
       h(Space, { size: 4 }, () => [
         h('span', { style: 'font-family:monospace' }, record.key),
-        record.oldIsEnabled !== undefined
-          ? h(
+        record.oldIsEnabled === undefined
+          ? null
+          : h(
               Tooltip,
               {
                 title: record.oldIsEnabled === 0 ? '现状禁用' : '现状启用',
@@ -395,8 +398,7 @@ const previewColumns = computed(() => [
                       : 'ant-design:check-circle-outlined',
                   style: `color:${record.oldIsEnabled === 0 ? '#bfbfbf' : '#52c41a'}`,
                 }),
-            )
-          : null,
+            ),
       ]),
   },
   {

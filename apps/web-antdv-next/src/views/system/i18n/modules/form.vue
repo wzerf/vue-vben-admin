@@ -259,7 +259,9 @@ const drawerTitle = computed(() => (isEdit.value ? '编辑语言' : '新建语�
               icon="ant-design:star-outlined"
               :style="{ color: token.colorPrimary }"
             />
-            <span class="text-sm" :style="{ color: token.colorText }">设为默认语言</span>
+            <span class="text-sm" :style="{ color: token.colorText }">
+              设为默认语言
+            </span>
           </Space>
           <Switch
             v-model:checked="formState.isDefault"
@@ -286,7 +288,9 @@ const drawerTitle = computed(() => (isEdit.value ? '编辑语言' : '新建语�
               icon="ant-design:check-circle-outlined"
               :style="{ color: token.colorPrimary }"
             />
-            <span class="text-sm" :style="{ color: token.colorText }">启用</span>
+            <span class="text-sm" :style="{ color: token.colorText }">
+              启用
+            </span>
           </Space>
           <Switch
             v-model:checked="formState.isEnabled"

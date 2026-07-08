@@ -559,7 +559,9 @@ onMounted(async () => {
       @ok="confirmExport"
     >
       <div class="flex items-center gap-3">
-        <span class="text-sm" style="color: var(--ant-color-text-secondary)">导出格式</span>
+        <span class="text-sm" style="color: var(--ant-color-text-secondary)">
+          导出格式
+        </span>
         <Button
           size="small"
           :type="exportType === 'simple' ? 'primary' : 'default'"
