@@ -1,7 +1,12 @@
 <script lang="ts" setup>
 import type { ImportFormat, PreviewRow, StagedFile } from './import-utils';
 
-import { computed, h, ref, watch } from 'vue';
+import type {
+  VxeTableGridColumns,
+  VxeTableGridOptions,
+} from '#/adapter/vxe-table';
+
+import { computed, ref, watch } from 'vue';
 
 import { IconifyIcon } from '@vben/icons';
 
@@ -21,6 +26,7 @@ import {
   Upload,
 } from 'antdv-next';
 
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
   fetchAllI18nLocalesApi,
   importI18nBatchApi,
@@ -86,6 +92,14 @@ const visiblePreviewRows = computed(() =>
   showChangedOnly.value
     ? filterChangedOnly(previewRows.value)
     : previewRows.value,
+);
+
+// 加载状态同步到 PreviewGrid（vxe-grid 用法）
+watch(
+  () => previewState.value.loading,
+  (val) => {
+    previewGridApi.setLoading?.(val);
+  },
 );
 
 const canGoStep2 = computed(
@@ -253,183 +267,134 @@ function detectFormat(s: StagedFile): ImportFormat {
   return obj && obj['@type'] === 'raw' ? 'raw' : 'simple';
 }
 
-// antdv-next a-table 列定义（Step 2）
-const fileConfigColumns = computed(() => [
-  { title: '文件名', dataIndex: 'name', width: 200, ellipsis: true },
+// Step 2 文件配置列（vxe-table 列定义 + 插槽名称）
+const fileConfigColumns: VxeTableGridColumns<StagedFile> = [
   {
+    field: 'name',
+    title: '文件名',
+    minWidth: 200,
+    slots: { default: 'cell-name' },
+  },
+  {
+    field: 'format',
     title: '格式',
-    dataIndex: 'format',
     width: 80,
-    customRender: ({ record }: { record: StagedFile }) =>
-      h(Tag, { color: detectFormat(record) === 'raw' ? 'blue' : 'green' }, () =>
-        detectFormat(record),
-      ),
+    slots: { default: 'cell-format' },
   },
   {
+    field: 'localeCode',
     title: '语言代码',
-    dataIndex: 'localeCode',
     width: 240,
-    customRender: ({
-      record,
-      index,
-    }: {
-      index: number;
-      record: StagedFile;
-    }) => {
-      if (detectFormat(record) === 'raw' || !record.parseOk) {
-        return h(Space, { size: 4 }, () => [
-          h(
-            Tag,
-            { color: 'blue', style: 'margin:0' },
-            () => record.payloadLocale?.code || record.localeCode || '—',
-          ),
-          h(
-            'span',
-            {
-              class: 'text-xs',
-              style: 'color:var(--ant-color-text-secondary)',
-            },
-            '来自文件',
-          ),
-        ]);
-      }
-      return h(Select, {
-        value: record.localeCode,
-        options: localeOptions.value,
-        placeholder: '选择语言',
-        showSearch: true,
-        style: 'width:220px',
-        'onUpdate:value': (v: unknown) =>
-          updateStaged(index, { localeCode: String(v ?? '') }),
-      });
-    },
+    slots: { default: 'cell-locale' },
   },
   {
+    field: 'prefix',
     title: '前缀',
-    dataIndex: 'prefix',
     width: 180,
-    customRender: ({
-      record,
-      index,
-    }: {
-      index: number;
-      record: StagedFile;
-    }) => {
-      if (detectFormat(record) === 'raw' || !record.parseOk) {
-        return h(
-          'span',
-          { class: 'text-xs', style: 'color:var(--ant-color-text-secondary)' },
-          '—',
-        );
-      }
-      return h('input', {
-        type: 'text',
-        value: record.prefix,
-        placeholder: '可选，如 app.',
-        onInput: (e: Event) =>
-          updateStaged(index, {
-            prefix: normalizePrefix((e.target as HTMLInputElement).value),
-          }),
-        style:
-          'width:100%;padding:4px 8px;border:1px solid #d9d9d9;border-radius:4px',
-      });
-    },
+    slots: { default: 'cell-prefix' },
   },
   {
+    field: 'parseOk',
     title: '状态',
-    dataIndex: 'parseOk',
     width: 90,
-    customRender: ({ record }: { record: StagedFile }) =>
-      record.parseOk
-        ? h(Tag, { color: 'success' }, () => '解析成功')
-        : h(Tag, { color: 'error' }, () => record.errorMessage ?? '失败'),
+    slots: { default: 'cell-parse' },
   },
   {
+    field: 'action',
     title: '操作',
-    dataIndex: 'action',
     width: 80,
-    customRender: ({ index }: { index: number }) =>
-      h(
-        Button,
-        { type: 'text', danger: true, onClick: () => removeStaged(index) },
-        () => '移除',
-      ),
+    slots: { default: 'cell-action' },
   },
-]);
+];
 
 // Step 3 预览列
-const previewColumns = computed(() => [
+const previewColumns: VxeTableGridColumns<PreviewRow> = [
   {
+    field: 'op',
     title: '变更类型',
-    dataIndex: 'op',
     width: 110,
-    customRender: ({ record }: { record: PreviewRow }) => {
-      const sameValue = record.oldValue === record.newValue;
-      const unchanged =
-        record.duplicate && sameValue && record.oldValue !== undefined;
-      if (unchanged) return h(Tag, {}, () => '未变更');
-      if (record.op === 'create')
-        return h(Tag, { color: 'green' }, () => '新增');
-      if (record.op === 'update')
-        return h(Tag, { color: 'blue' }, () => '修改');
-      return h(Tag, { color: 'red' }, () => '重复');
-    },
+    slots: { default: 'cell-op' },
   },
-  { title: '语言代码', dataIndex: 'localeCode', width: 100 },
+  { field: 'localeCode', title: '语言代码', width: 100 },
   {
+    field: 'key',
     title: '翻译键',
-    dataIndex: 'key',
     width: 220,
-    customRender: ({ record }: { record: PreviewRow }) =>
-      h(Space, { size: 4 }, () => [
-        h('span', { style: 'font-family:monospace' }, record.key),
-        record.oldIsEnabled === undefined
-          ? null
-          : h(
-              Tooltip,
-              {
-                title: record.oldIsEnabled === 0 ? '现状禁用' : '现状启用',
-              },
-              () =>
-                h(IconifyIcon, {
-                  icon:
-                    record.oldIsEnabled === 0
-                      ? 'ant-design:minus-circle-outlined'
-                      : 'ant-design:check-circle-outlined',
-                  style: `color:${record.oldIsEnabled === 0 ? '#bfbfbf' : '#52c41a'}`,
-                }),
-            ),
-      ]),
+    slots: { default: 'cell-key' },
   },
   {
+    field: 'oldValue',
     title: '旧值 / 新值',
     width: 360,
-    customRender: ({ record }: { record: PreviewRow }) =>
-      h('div', { style: 'line-height:1.5' }, [
-        h('div', { style: 'color:#ff4d4f' }, record.oldValue ?? '—'),
-        h('div', { style: 'color:#52c41a' }, record.newValue),
-      ]),
+    slots: { default: 'cell-diff' },
   },
   {
+    field: 'remark',
     title: '备注',
-    dataIndex: 'remark',
     width: 140,
-    customRender: ({ record }: { record: PreviewRow }) =>
-      record.remark
-        ? h('span', {}, record.remark)
-        : h('span', { style: 'color:#999' }, '-'),
+    slots: { default: 'cell-remark' },
   },
-  {
-    title: '来源文件',
-    dataIndex: 'sourceFile',
-    width: 160,
-    ellipsis: true,
-  },
-]);
+  { field: 'sourceFile', title: '来源文件', width: 160, minWidth: 160 },
+];
+
+// Step 2 Grid（仅展示 staged，columns 用 slots 渲染交互）
+// ponytail: tableData 字段类型是 any[]，但 use-vxe-grid.vue 内部实际接受了 Ref<any[]>
+// （mergedOptions.data = tableData.value,见 use-vxe-grid.vue:256），这里 cast 一次让 TS 闭嘴。
+const [Step2Grid] = useVbenVxeGrid<StagedFile>({
+  tableData: staged as unknown as StagedFile[],
+  gridOptions: {
+    columns: fileConfigColumns,
+    rowConfig: { keyField: 'name' },
+    size: 'small',
+    stripe: true,
+    showOverflow: true,
+    toolbarConfig: { enabled: false },
+    pagerConfig: { enabled: false },
+  } as VxeTableGridOptions<StagedFile>,
+});
+
+// 响应式：visiblePreviewRows 重算后同步进 _key(vxe-table keyField 要求单一字段)
+const previewRowsWithKey = computed(() =>
+  visiblePreviewRows.value.map((r, i) => ({
+    ...r,
+    _key: `${r.localeCode}-${r.key}-${r.sourceFile}-${i}`,
+  })),
+);
+
+// Step 3 Preview Grid
+// ponytail: 同上,tableData 类型容不下 ComputedRef,cast 一次
+const [PreviewGrid, previewGridApi] = useVbenVxeGrid<PreviewRow>({
+  tableData: previewRowsWithKey as unknown as PreviewRow[],
+  gridOptions: {
+    columns: previewColumns,
+    rowConfig: { keyField: '_key' },
+    size: 'small',
+    stripe: true,
+    showOverflow: true,
+    toolbarConfig: { enabled: false },
+    pagerConfig: {
+      enabled: true,
+      pageSize: 20,
+      pageSizes: [20, 50, 100, 200],
+      layouts: [
+        'Total',
+        'Sizes',
+        'Home',
+        'PrevJump',
+        'PrevPage',
+        'Number',
+        'NextPage',
+        'NextJump',
+        'End',
+      ],
+    },
+  } as VxeTableGridOptions<PreviewRow>,
+});
 
 async function goToStep3() {
   step.value = 2;
   previewState.value = { loading: true, currentRows: [] };
+  previewGridApi.setLoading?.(true);
   try {
     const res = await previewI18nImportApi({
       items: previewKeysByLocale.value,
@@ -443,8 +408,10 @@ async function goToStep3() {
         isEnabled: r.isEnabled,
       })),
     };
+    previewGridApi.setLoading?.(false);
   } catch (error: any) {
     previewState.value = { loading: false, currentRows: [] };
+    previewGridApi.setLoading?.(false);
     message.error(`预览失败：${error.message ?? '未知错误'}`);
   }
 }
@@ -611,13 +578,80 @@ function handleClose() {
           show-icon
           message="为 simple 文件配置语言代码与前缀；raw 文件自动从文件内读取，不可修改。"
         />
-        <a-table
-          :data-source="staged"
-          :columns="fileConfigColumns"
-          :pagination="false"
-          :row-key="(r: StagedFile) => `${staged.indexOf(r)}-${r.name}`"
-          size="small"
-        />
+        <Step2Grid>
+          <template #cell-name="{ row }">
+            <span>{{ row.name }}</span>
+          </template>
+
+          <template #cell-format="{ row }">
+            <Tag :color="detectFormat(row) === 'raw' ? 'blue' : 'green'">
+              {{ detectFormat(row) }}
+            </Tag>
+          </template>
+
+          <template #cell-locale="{ row, rowIndex }">
+            <Space v-if="detectFormat(row) === 'raw' || !row.parseOk" :size="4">
+              <Tag color="blue" style="margin: 0">
+                {{ row.payloadLocale?.code || row.localeCode || '—' }}
+              </Tag>
+              <span
+                class="text-xs"
+                style="color: var(--ant-color-text-secondary)"
+                >来自文件</span>
+            </Space>
+            <Select
+              v-else
+              :value="row.localeCode"
+              :options="localeOptions"
+              placeholder="选择语言"
+              show-search
+              style="width: 220px"
+              @update:value="
+                (v: unknown) =>
+                  updateStaged(rowIndex, { localeCode: String(v ?? '') })
+              "
+            />
+          </template>
+
+          <template #cell-prefix="{ row, rowIndex }">
+            <span
+              v-if="detectFormat(row) === 'raw' || !row.parseOk"
+              class="text-xs"
+              style="color: var(--ant-color-text-secondary)"
+              >—</span>
+            <input
+              v-else
+              type="text"
+              :value="row.prefix"
+              placeholder="可选，如 app."
+              style="
+                width: 100%;
+                padding: 4px 8px;
+                border: 1px solid #d9d9d9;
+                border-radius: 4px;
+              "
+              @input="
+                (e: Event) =>
+                  updateStaged(rowIndex, {
+                    prefix: normalizePrefix(
+                      (e.target as HTMLInputElement).value,
+                    ),
+                  })
+              "
+            />
+          </template>
+
+          <template #cell-parse="{ row }">
+            <Tag v-if="row.parseOk" color="success">解析成功</Tag>
+            <Tag v-else color="error">{{ row.errorMessage ?? '失败' }}</Tag>
+          </template>
+
+          <template #cell-action="{ rowIndex }">
+            <Button type="text" danger @click="removeStaged(rowIndex)">
+              移除
+            </Button>
+          </template>
+        </Step2Grid>
 
         <div style="text-align: right">
           <Space>
@@ -663,21 +697,55 @@ function handleClose() {
             </Popconfirm>
           </Space>
 
-          <a-table
-            :data-source="visiblePreviewRows"
-            :columns="previewColumns"
-            :pagination="{
-              pageSize: 20,
-              showSizeChanger: true,
-              showTotal: (t: number) => `共 ${t} 条`,
-            }"
-            :row-key="
-              (r: PreviewRow, i?: number) =>
-                `${r.localeCode}-${r.key}-${r.sourceFile}-${i ?? 0}`
-            "
-            size="small"
-            :scroll="{ y: 400 }"
-          />
+          <PreviewGrid>
+            <template #cell-op="{ row }">
+              <Tag
+                v-if="
+                  row.duplicate &&
+                  row.oldValue === row.newValue &&
+                  row.oldValue !== undefined
+                "
+              >
+                未变更
+              </Tag>
+              <Tag v-else-if="row.op === 'create'" color="green">新增</Tag>
+              <Tag v-else-if="row.op === 'update'" color="blue">修改</Tag>
+              <Tag v-else color="red">重复</Tag>
+            </template>
+
+            <template #cell-key="{ row }">
+              <Space :size="4">
+                <span style="font-family: monospace">{{ row.key }}</span>
+                <Tooltip
+                  v-if="row.oldIsEnabled !== undefined"
+                  :title="row.oldIsEnabled === 0 ? '现状禁用' : '现状启用'"
+                >
+                  <IconifyIcon
+                    :icon="
+                      row.oldIsEnabled === 0
+                        ? 'ant-design:minus-circle-outlined'
+                        : 'ant-design:check-circle-outlined'
+                    "
+                    :style="{
+                      color: row.oldIsEnabled === 0 ? '#bfbfbf' : '#52c41a',
+                    }"
+                  />
+                </Tooltip>
+              </Space>
+            </template>
+
+            <template #cell-diff="{ row }">
+              <div style="line-height: 1.5">
+                <div style="color: #ff4d4f">{{ row.oldValue ?? '—' }}</div>
+                <div style="color: #52c41a">{{ row.newValue }}</div>
+              </div>
+            </template>
+
+            <template #cell-remark="{ row }">
+              <span v-if="row.remark">{{ row.remark }}</span>
+              <span v-else style="color: #999">-</span>
+            </template>
+          </PreviewGrid>
         </template>
 
         <div style="text-align: right">
