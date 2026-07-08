@@ -308,33 +308,34 @@ const fileConfigColumns: VxeTableGridColumns<StagedFile> = [
 ];
 
 // Step 3 预览列
+// ponytail: 用 minWidth 而非 width，让 vxe-grid 在 autoResize 下按 modal 内宽自动列分配，避免右侧空白。
 const previewColumns: VxeTableGridColumns<PreviewRow> = [
   {
     field: 'op',
     title: '变更类型',
-    width: 110,
+    minWidth: 100,
     slots: { default: 'cell-op' },
   },
-  { field: 'localeCode', title: '语言代码', width: 100 },
+  { field: 'localeCode', title: '语言代码', minWidth: 100 },
   {
     field: 'key',
     title: '翻译键',
-    width: 220,
+    minWidth: 200,
     slots: { default: 'cell-key' },
   },
   {
     field: 'oldValue',
     title: '旧值 / 新值',
-    width: 360,
+    minWidth: 320,
     slots: { default: 'cell-diff' },
   },
   {
     field: 'remark',
     title: '备注',
-    width: 140,
+    minWidth: 120,
     slots: { default: 'cell-remark' },
   },
-  { field: 'sourceFile', title: '来源文件', width: 160, minWidth: 160 },
+  { field: 'sourceFile', title: '来源文件', minWidth: 140 },
 ];
 
 // Step 2 Grid（仅展示 staged，columns 用 slots 渲染交互）
@@ -371,6 +372,7 @@ const [PreviewGrid, previewGridApi] = useVbenVxeGrid<PreviewRow>({
     size: 'small',
     stripe: true,
     showOverflow: true,
+    autoResize: true,
     toolbarConfig: { enabled: false },
     pagerConfig: {
       enabled: true,
@@ -477,7 +479,7 @@ function handleClose() {
   <Modal
     title="导入 JSON"
     :open="props.open"
-    :width="920"
+    :width="1400"
     :destroy-on-close="true"
     :footer="null"
     :mask-closable="false"
@@ -578,80 +580,85 @@ function handleClose() {
           show-icon
           message="为 simple 文件配置语言代码与前缀；raw 文件自动从文件内读取，不可修改。"
         />
-        <Step2Grid>
-          <template #cell-name="{ row }">
-            <span>{{ row.name }}</span>
-          </template>
+        <div style="width: 100%">
+          <Step2Grid>
+            <template #cell-name="{ row }">
+              <span>{{ row.name }}</span>
+            </template>
 
-          <template #cell-format="{ row }">
-            <Tag :color="detectFormat(row) === 'raw' ? 'blue' : 'green'">
-              {{ detectFormat(row) }}
-            </Tag>
-          </template>
-
-          <template #cell-locale="{ row, rowIndex }">
-            <Space v-if="detectFormat(row) === 'raw' || !row.parseOk" :size="4">
-              <Tag color="blue" style="margin: 0">
-                {{ row.payloadLocale?.code || row.localeCode || '—' }}
+            <template #cell-format="{ row }">
+              <Tag :color="detectFormat(row) === 'raw' ? 'blue' : 'green'">
+                {{ detectFormat(row) }}
               </Tag>
+            </template>
+
+            <template #cell-locale="{ row, rowIndex }">
+              <Space
+                v-if="detectFormat(row) === 'raw' || !row.parseOk"
+                :size="4"
+              >
+                <Tag color="blue" style="margin: 0">
+                  {{ row.payloadLocale?.code || row.localeCode || '—' }}
+                </Tag>
+                <span
+                  class="text-xs"
+                  style="color: var(--ant-color-text-secondary)"
+                  >来自文件</span>
+              </Space>
+              <Select
+                v-else
+                :value="row.localeCode"
+                :options="localeOptions"
+                placeholder="选择语言"
+                show-search
+                style="width: 220px"
+                @update:value="
+                  (v: unknown) =>
+                    updateStaged(rowIndex, { localeCode: String(v ?? '') })
+                "
+              />
+            </template>
+
+            <template #cell-prefix="{ row, rowIndex }">
               <span
+                v-if="detectFormat(row) === 'raw' || !row.parseOk"
                 class="text-xs"
                 style="color: var(--ant-color-text-secondary)"
-                >来自文件</span>
-            </Space>
-            <Select
-              v-else
-              :value="row.localeCode"
-              :options="localeOptions"
-              placeholder="选择语言"
-              show-search
-              style="width: 220px"
-              @update:value="
-                (v: unknown) =>
-                  updateStaged(rowIndex, { localeCode: String(v ?? '') })
-              "
-            />
-          </template>
+                >—</span>
+              <input
+                v-else
+                type="text"
+                :value="row.prefix"
+                placeholder="可选，如 app."
+                style="
+                  width: 100%;
+                  padding: 4px 8px;
+                  border: 1px solid #d9d9d9;
+                  border-radius: 4px;
+                "
+                @input="
+                  (e: Event) =>
+                    updateStaged(rowIndex, {
+                      prefix: normalizePrefix(
+                        (e.target as HTMLInputElement).value,
+                      ),
+                    })
+                "
+              />
+            </template>
 
-          <template #cell-prefix="{ row, rowIndex }">
-            <span
-              v-if="detectFormat(row) === 'raw' || !row.parseOk"
-              class="text-xs"
-              style="color: var(--ant-color-text-secondary)"
-              >—</span>
-            <input
-              v-else
-              type="text"
-              :value="row.prefix"
-              placeholder="可选，如 app."
-              style="
-                width: 100%;
-                padding: 4px 8px;
-                border: 1px solid #d9d9d9;
-                border-radius: 4px;
-              "
-              @input="
-                (e: Event) =>
-                  updateStaged(rowIndex, {
-                    prefix: normalizePrefix(
-                      (e.target as HTMLInputElement).value,
-                    ),
-                  })
-              "
-            />
-          </template>
+            <template #cell-parse="{ row }">
+              <Tag v-if="row.parseOk" color="success">解析成功</Tag>
+              <Tag v-else color="error">{{ row.errorMessage ?? '失败' }}</Tag>
+            </template>
 
-          <template #cell-parse="{ row }">
-            <Tag v-if="row.parseOk" color="success">解析成功</Tag>
-            <Tag v-else color="error">{{ row.errorMessage ?? '失败' }}</Tag>
-          </template>
-
-          <template #cell-action="{ rowIndex }">
-            <Button type="text" danger @click="removeStaged(rowIndex)">
-              移除
-            </Button>
-          </template>
-        </Step2Grid>
+            <template #cell-action="{ rowIndex }">
+              <Button type="text" danger @click="removeStaged(rowIndex)">
+                移除
+              </Button>
+            </template>
+          </Step2Grid>
+        </div>
 
         <div style="text-align: right">
           <Space>
@@ -697,55 +704,57 @@ function handleClose() {
             </Popconfirm>
           </Space>
 
-          <PreviewGrid>
-            <template #cell-op="{ row }">
-              <Tag
-                v-if="
-                  row.duplicate &&
-                  row.oldValue === row.newValue &&
-                  row.oldValue !== undefined
-                "
-              >
-                未变更
-              </Tag>
-              <Tag v-else-if="row.op === 'create'" color="green">新增</Tag>
-              <Tag v-else-if="row.op === 'update'" color="blue">修改</Tag>
-              <Tag v-else color="red">重复</Tag>
-            </template>
-
-            <template #cell-key="{ row }">
-              <Space :size="4">
-                <span style="font-family: monospace">{{ row.key }}</span>
-                <Tooltip
-                  v-if="row.oldIsEnabled !== undefined"
-                  :title="row.oldIsEnabled === 0 ? '现状禁用' : '现状启用'"
+          <div style="width: 100%">
+            <PreviewGrid>
+              <template #cell-op="{ row }">
+                <Tag
+                  v-if="
+                    row.duplicate &&
+                    row.oldValue === row.newValue &&
+                    row.oldValue !== undefined
+                  "
                 >
-                  <IconifyIcon
-                    :icon="
-                      row.oldIsEnabled === 0
-                        ? 'ant-design:minus-circle-outlined'
-                        : 'ant-design:check-circle-outlined'
-                    "
-                    :style="{
-                      color: row.oldIsEnabled === 0 ? '#bfbfbf' : '#52c41a',
-                    }"
-                  />
-                </Tooltip>
-              </Space>
-            </template>
+                  未变更
+                </Tag>
+                <Tag v-else-if="row.op === 'create'" color="green">新增</Tag>
+                <Tag v-else-if="row.op === 'update'" color="blue">修改</Tag>
+                <Tag v-else color="red">重复</Tag>
+              </template>
 
-            <template #cell-diff="{ row }">
-              <div style="line-height: 1.5">
-                <div style="color: #ff4d4f">{{ row.oldValue ?? '—' }}</div>
-                <div style="color: #52c41a">{{ row.newValue }}</div>
-              </div>
-            </template>
+              <template #cell-key="{ row }">
+                <Space :size="4">
+                  <span style="font-family: monospace">{{ row.key }}</span>
+                  <Tooltip
+                    v-if="row.oldIsEnabled !== undefined"
+                    :title="row.oldIsEnabled === 0 ? '现状禁用' : '现状启用'"
+                  >
+                    <IconifyIcon
+                      :icon="
+                        row.oldIsEnabled === 0
+                          ? 'ant-design:minus-circle-outlined'
+                          : 'ant-design:check-circle-outlined'
+                      "
+                      :style="{
+                        color: row.oldIsEnabled === 0 ? '#bfbfbf' : '#52c41a',
+                      }"
+                    />
+                  </Tooltip>
+                </Space>
+              </template>
 
-            <template #cell-remark="{ row }">
-              <span v-if="row.remark">{{ row.remark }}</span>
-              <span v-else style="color: #999">-</span>
-            </template>
-          </PreviewGrid>
+              <template #cell-diff="{ row }">
+                <div style="line-height: 1.5">
+                  <div style="color: #ff4d4f">{{ row.oldValue ?? '—' }}</div>
+                  <div style="color: #52c41a">{{ row.newValue }}</div>
+                </div>
+              </template>
+
+              <template #cell-remark="{ row }">
+                <span v-if="row.remark">{{ row.remark }}</span>
+                <span v-else style="color: #999">-</span>
+              </template>
+            </PreviewGrid>
+          </div>
         </template>
 
         <div style="text-align: right">
