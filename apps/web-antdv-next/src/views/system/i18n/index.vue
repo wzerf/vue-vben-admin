@@ -17,6 +17,7 @@ import {
   Space,
   Tag,
 } from 'antdv-next';
+import JSZip from 'jszip';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { useDictLookups } from '#/api/system/dict/hooks';
@@ -24,7 +25,7 @@ import {
   batchI18nLocaleApi,
   batchI18nTranslationApi,
   deleteI18nTranslationApi,
-  exportI18nApi,
+  exportI18nBatchApi,
   fetchAllI18nLocalesApi,
   fetchI18nLocaleListApi,
   fetchI18nTranslationListApi,
@@ -285,17 +286,20 @@ function openExportModal() {
 async function confirmExport() {
   const ids = [...localeSelectedIds.value];
   try {
-    const data = await exportI18nApi({ ids, type: exportType.value });
-    const blob = new Blob([JSON.stringify(data, null, 2)], {
-      type: 'application/json',
-    });
+    const data = await exportI18nBatchApi({ ids, format: exportType.value });
+    const zip = new JSZip();
+    for (const file of data.files) {
+      const filename = `${file.code}.${file.format}.json`;
+      zip.file(filename, JSON.stringify(file.content, null, 2));
+    }
+    const blob = await zip.generateAsync({ type: 'blob' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `i18n-export-${exportType.value}.json`;
+    a.download = `i18n-export-${exportType.value}.zip`;
     a.click();
     URL.revokeObjectURL(url);
-    message.success('导出成功');
+    message.success(`导出成功：${data.files.length} 个语言已打包下载`);
     exportModalOpen.value = false;
   } catch (error: any) {
     message.error(`导出失败：${error.message ?? '未知错误'}`);
