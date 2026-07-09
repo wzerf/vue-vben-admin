@@ -489,7 +489,7 @@ const childColumns = [
     dataIndex: 'updatedAt',
     width: 170,
   },
-  { key: 'childAction', title: '操作', width: 140 },
+  { key: 'childAction', title: '操作', width: 140, fixed: 'right' as const },
 ];
 
 function formatUpdatedAt(value: string | undefined): string {
@@ -656,6 +656,7 @@ function formatUpdatedAt(value: string | undefined): string {
                     :pagination="false"
                     size="small"
                     row-key="id"
+                    :scroll="{ x: 'max-content' }"
                   >
                     <template #bodyCell="{ column, record: childRow }">
                       <template v-if="column.key === 'localeCode'">
