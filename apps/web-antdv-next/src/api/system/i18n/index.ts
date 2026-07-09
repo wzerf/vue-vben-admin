@@ -13,6 +13,8 @@ import type {
   I18nTranslationBatchUpsertByKeyRequest,
   I18nTranslationBatchUpsertByKeyResponse,
   I18nTranslationByKeyResponse,
+  I18nTranslationKey,
+  I18nTranslationKeyQuery,
   I18nTranslationQuery,
   PageResult,
   UpdateI18nLocaleRequest,
@@ -79,6 +81,19 @@ export function fetchI18nTranslationListApi(params: I18nTranslationQuery = {}) {
   return requestClient.get<PageResult<I18nTranslation>>(
     '/system/i18n-translation/list',
     { params },
+  );
+}
+
+/**
+ * 按 translationKey 聚合的主行分页（默认视图用）。
+ * 后端忽略 localeId/localeCode 参数。
+ */
+export function fetchI18nTranslationKeyListApi(
+  params: I18nTranslationKeyQuery = {},
+) {
+  return requestClient.get<PageResult<I18nTranslationKey>>(
+    '/system/i18n-translation/list',
+    { params: { ...params, byKey: 'true' } },
   );
 }
 

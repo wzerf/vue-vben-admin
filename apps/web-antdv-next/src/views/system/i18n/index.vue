@@ -1,8 +1,12 @@
 <script lang="ts" setup>
 import type { VxeGridListeners } from '#/adapter/vxe-table';
-import type { I18nLocale, I18nTranslation } from '#/api/system/i18n';
+import type {
+  I18nLocale,
+  I18nTranslation,
+  I18nTranslationKey,
+} from '#/api/system/i18n';
 
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
 
@@ -15,6 +19,7 @@ import {
   Popconfirm,
   Row,
   Space,
+  Table,
   Tag,
 } from 'antdv-next';
 import JSZip from 'jszip';
@@ -28,12 +33,14 @@ import {
   exportI18nBatchApi,
   fetchAllI18nLocalesApi,
   fetchI18nLocaleListApi,
+  fetchI18nTranslationKeyListApi,
   fetchI18nTranslationListApi,
 } from '#/api/system/i18n';
 import {
   useLocaleColumns,
   useLocaleSearchSchema,
   useTranslationColumns,
+  useTranslationKeyColumns,
   useTranslationSearchSchema,
 } from '#/views/system/i18n/data';
 import Form from '#/views/system/i18n/modules/form.vue';
@@ -88,6 +95,7 @@ const localeGridEvents: VxeGridListeners<I18nLocale> = {
     selectedLocaleId.value = row.id;
     selectedLocale.value = row;
     translationGridApi.reload();
+    translationKeyGridApi.reload();
   },
   checkboxChange: ({ row, checked }) => {
     if (!row) return;
@@ -198,6 +206,135 @@ const [TranslationGrid, translationGridApi] = useVbenVxeGrid<I18nTranslation>({
   } as never,
 });
 
+/* ============================================================
+ * 默认视图：按 translationKey 聚合的主行 + 展开子表
+ * ============================================================ */
+
+const translationKeyColumns: ReturnType<typeof useTranslationKeyColumns> =
+  useTranslationKeyColumns();
+
+const expandedKeyRows = ref<Set<string>>(new Set());
+const childRowsByKey = ref<Record<string, I18nTranslation[]>>({});
+const childLoadingKey = ref<null | string>(null);
+
+const [TranslationKeyGrid, translationKeyGridApi] =
+  useVbenVxeGrid<I18nTranslationKey>({
+    formOptions: {
+      collapsed: false,
+      schema: useTranslationSearchSchema(),
+      showCollapseButton: false,
+    },
+    gridEvents: {
+      toggleRowExpand: ({ expanded, row }) => {
+        onExpandRowChange({ expanded, row });
+      },
+    } as VxeGridListeners<I18nTranslationKey>,
+    gridOptions: {
+      columns: translationKeyColumns,
+      keepSource: true,
+      proxyConfig: {
+        ajax: {
+          query: async (
+            { page }: { page: { currentPage: number; pageSize: number } },
+            formValues: Record<string, unknown>,
+          ) => {
+            return await fetchI18nTranslationKeyListApi({
+              page: page.currentPage,
+              pageSize: page.pageSize,
+              value: (formValues.value as string) || undefined,
+            });
+          },
+        },
+      },
+      size: 'small',
+      stripe: true,
+      toolbarConfig: {
+        custom: true,
+        refresh: true,
+        zoom: true,
+      },
+    } as never,
+  });
+
+async function ensureChildRows(row: I18nTranslationKey) {
+  if (childRowsByKey.value[row.translationKey]) return;
+  childLoadingKey.value = row.translationKey;
+  try {
+    const res = await fetchI18nTranslationListApi({
+      page: 1,
+      pageSize: 1000,
+    });
+    childRowsByKey.value = {
+      ...childRowsByKey.value,
+      [row.translationKey]: res.items.filter(
+        (it) => it.translationKey === row.translationKey,
+      ),
+    };
+  } finally {
+    childLoadingKey.value = null;
+  }
+}
+
+async function onExpandRowChange(payload: {
+  expanded: boolean;
+  row?: I18nTranslationKey;
+}) {
+  if (!payload.row) return;
+  const { translationKey } = payload.row;
+  const next = new Set(expandedKeyRows.value);
+  if (payload.expanded) {
+    next.add(translationKey);
+    await ensureChildRows(payload.row);
+  } else {
+    next.delete(translationKey);
+  }
+  expandedKeyRows.value = next;
+}
+
+async function deleteChildRow(parentKey: string, row: I18nTranslation) {
+  try {
+    await deleteI18nTranslationApi(row.id);
+    message.success('删除成功');
+    childRowsByKey.value = {
+      ...childRowsByKey.value,
+      [parentKey]: (childRowsByKey.value[parentKey] ?? []).filter(
+        (it) => it.id !== row.id,
+      ),
+    };
+    // 主行 localeCount 也变了 -> reload 主表
+    translationKeyGridApi.reload();
+  } catch (error) {
+    message.error(`删除失败：${(error as Error).message ?? '未知错误'}`);
+  }
+}
+
+function editChildRow(row: I18nTranslation) {
+  openTranslationEdit(row);
+}
+
+function editKeyRow(row: I18nTranslationKey) {
+  // 用 sampleRowId 作为 sourceRow（抽屉内部走 byKeyQuery，只看 translationKey）
+  const placeholder: I18nTranslation = {
+    id: row.sampleRowId,
+    localeId: row.sampleLocaleId,
+    translationKey: row.translationKey,
+    localeCode: row.sampleLocaleCode,
+    value: '',
+    remark: '',
+    isEnabled: 1,
+    deletedAt: 0,
+    createdAt: '',
+    updatedAt: row.sampleUpdatedAt,
+  };
+  openTranslationEdit(placeholder);
+}
+
+const isCollapsedView = ref(true);
+
+watch(selectedLocaleId, (val) => {
+  isCollapsedView.value = val === null;
+});
+
 function openLocaleCreate() {
   localeFormDrawerApi.setData({}).open();
 }
@@ -217,6 +354,7 @@ function clearTranslationSelection() {
   selectedLocaleId.value = null;
   selectedLocale.value = null;
   translationGridApi.reload();
+  translationKeyGridApi.reload();
 }
 
 function onLocaleSaved() {
@@ -225,6 +363,7 @@ function onLocaleSaved() {
     clearTranslationSelection();
   } else {
     translationGridApi.reload();
+    translationKeyGridApi.reload();
   }
 }
 
@@ -309,6 +448,7 @@ async function confirmExport() {
 function onImportSuccess() {
   localeGridApi.reload();
   translationGridApi.reload();
+  translationKeyGridApi.reload();
 }
 
 onMounted(async () => {
@@ -319,6 +459,46 @@ onMounted(async () => {
     // 静默失败：drawer 打开时再尝试
   }
 });
+
+/* 子表列（主行展开后显示）—— antdv-next Table 用 key/title/bodyCell 插槽 */
+const childColumns = [
+  { key: 'localeCode', title: '语言', dataIndex: 'localeCode', width: 120 },
+  {
+    key: 'value',
+    title: '翻译值',
+    dataIndex: 'value',
+    ellipsis: true,
+    width: 240,
+  },
+  {
+    key: 'isEnabled',
+    title: '状态',
+    dataIndex: 'isEnabled',
+    width: 90,
+  },
+  {
+    key: 'remark',
+    title: '备注',
+    dataIndex: 'remark',
+    ellipsis: true,
+    width: 160,
+  },
+  {
+    key: 'updatedAt',
+    title: '更新时间',
+    dataIndex: 'updatedAt',
+    width: 170,
+  },
+  { key: 'childAction', title: '操作', width: 140 },
+];
+
+function formatUpdatedAt(value: string | undefined): string {
+  if (!value) return '-';
+  const d = new Date(value);
+  return Number.isNaN(d.getTime())
+    ? value
+    : d.toLocaleString('zh-CN', { hour12: false });
+}
 </script>
 
 <template>
@@ -438,111 +618,215 @@ onMounted(async () => {
 
       <Col :span="24" :md="12">
         <Card>
-          <TranslationGrid>
-            <template #table-title>
-              <Space align="center" :size="8">
-                <span style="font-size: 16px">翻译</span>
-                <Tag
-                  v-if="selectedLocale"
-                  color="blue"
-                  closable
-                  style="font-size: 14px"
-                  @close="clearTranslationSelection"
-                >
-                  {{ selectedLocale.name }}（{{ selectedLocale.code }}）
-                </Tag>
-              </Space>
-            </template>
-            <template #translation_status="{ row }">
-              <Tag
-                :color="
-                  dictLookups.lookupSwitchTagType(row.isEnabled as 0 | 1) ??
-                  'default'
-                "
-                size="small"
-              >
-                {{ dictLookups.lookupSwitchLabel(row.isEnabled as 0 | 1) }}
-              </Tag>
-            </template>
-            <template #toolbar-tools>
-              <Space :size="8" align="center">
-                <span
-                  v-if="translationSelectedIds.size > 0"
-                  class="text-xs"
-                  style="color: var(--ant-color-text-secondary)"
-                >
-                  已选
-                  <strong style="color: var(--ant-color-text)">{{
-                    translationSelectedIds.size
-                  }}</strong>
-                  条
-                </span>
+          <template v-if="isCollapsedView">
+            <TranslationKeyGrid>
+              <template #table-title>
+                <Space align="center" :size="8">
+                  <span style="font-size: 16px">翻译</span>
+                  <Tag color="default" style="font-size: 14px">
+                    按 key 聚合视图
+                  </Tag>
+                </Space>
+              </template>
+              <template #toolbar-tools>
                 <Button
-                  v-if="translationSelectedIds.size > 0"
-                  size="small"
-                  :loading="bulkLoading.translation"
-                  @click="bulkTranslationAction('enable')"
-                >
-                  批量启用
-                </Button>
-                <Button
-                  v-if="translationSelectedIds.size > 0"
-                  size="small"
-                  :loading="bulkLoading.translation"
-                  @click="bulkTranslationAction('disable')"
-                >
-                  批量禁用
-                </Button>
-                <Popconfirm
-                  v-if="translationSelectedIds.size > 0"
-                  title="确定要删除选中的翻译？"
-                  @confirm="bulkTranslationAction('delete')"
-                >
-                  <Button
-                    size="small"
-                    danger
-                    ghost
-                    :loading="bulkLoading.translation"
-                  >
-                    批量删除
-                  </Button>
-                </Popconfirm>
-                <Button
-                  v-if="translationSelectedIds.size === 0"
                   type="primary"
+                  size="small"
                   @click="openTranslationCreate"
                 >
                   新建翻译
                 </Button>
-              </Space>
-            </template>
-            <template #action="{ row }">
-              <Space>
-                <Button
-                  type="link"
-                  size="small"
-                  @click="openTranslationEdit(row)"
-                >
+              </template>
+              <template #translation_key_count="{ row }">
+                <Tag color="blue" size="small">
+                  {{ row.localeCount }} 语言
+                </Tag>
+              </template>
+              <template #translation_key_action="{ row }">
+                <Button type="link" size="small" @click="editKeyRow(row)">
                   编辑
                 </Button>
-                <Button
-                  type="link"
-                  size="small"
-                  danger
-                  @click="
-                    deleteI18nTranslationApi(row.id)
-                      .then(() => translationGridApi.reload())
-                      .then(() => message.success('删除成功'))
-                      .catch((err: Error) =>
-                        message.error(`删除失败：${err.message}`),
-                      )
+              </template>
+              <template #translation_key_expand="{ row }">
+                <div style="padding: 12px 24px">
+                  <Table
+                    :columns="childColumns"
+                    :data-source="childRowsByKey[row.translationKey] ?? []"
+                    :loading="childLoadingKey === row.translationKey"
+                    :pagination="false"
+                    size="small"
+                    row-key="id"
+                  >
+                    <template #bodyCell="{ column, record: childRow }">
+                      <template v-if="column.key === 'localeCode'">
+                        <Tag color="default" size="small">
+                          {{ childRow.localeCode || '-' }}
+                        </Tag>
+                      </template>
+                      <template v-else-if="column.key === 'isEnabled'">
+                        <Tag
+                          :color="
+                            dictLookups.lookupSwitchTagType(
+                              childRow.isEnabled as 0 | 1,
+                            ) ?? 'default'
+                          "
+                          size="small"
+                        >
+                          {{
+                            dictLookups.lookupSwitchLabel(
+                              childRow.isEnabled as 0 | 1,
+                            )
+                          }}
+                        </Tag>
+                      </template>
+                      <template v-else-if="column.key === 'remark'">
+                        <span v-if="childRow.remark" :title="childRow.remark">
+                          {{ childRow.remark }}
+                        </span>
+                        <span v-else style="color: #999">-</span>
+                      </template>
+                      <template v-else-if="column.key === 'updatedAt'">
+                        {{ formatUpdatedAt(childRow.updatedAt) }}
+                      </template>
+                      <template v-else-if="column.key === 'childAction'">
+                        <Space :size="4">
+                          <Button
+                            type="link"
+                            size="small"
+                            @click="editChildRow(childRow)"
+                          >
+                            编辑
+                          </Button>
+                          <Popconfirm
+                            title="确定要删除该翻译？"
+                            @confirm="
+                              deleteChildRow(row.translationKey, childRow)
+                            "
+                          >
+                            <Button type="link" size="small" danger>
+                              删除
+                            </Button>
+                          </Popconfirm>
+                        </Space>
+                      </template>
+                      <template v-else>
+                        {{
+                          childRow[column.dataIndex as keyof I18nTranslation]
+                        }}
+                      </template>
+                    </template>
+                  </Table>
+                </div>
+              </template>
+            </TranslationKeyGrid>
+          </template>
+          <template v-else>
+            <TranslationGrid>
+              <template #table-title>
+                <Space align="center" :size="8">
+                  <span style="font-size: 16px">翻译</span>
+                  <Tag
+                    v-if="selectedLocale"
+                    color="blue"
+                    closable
+                    style="font-size: 14px"
+                    @close="clearTranslationSelection"
+                  >
+                    {{ selectedLocale.name }}（{{ selectedLocale.code }}）
+                  </Tag>
+                </Space>
+              </template>
+              <template #translation_status="{ row }">
+                <Tag
+                  :color="
+                    dictLookups.lookupSwitchTagType(row.isEnabled as 0 | 1) ??
+                    'default'
                   "
+                  size="small"
                 >
-                  删除
-                </Button>
-              </Space>
-            </template>
-          </TranslationGrid>
+                  {{ dictLookups.lookupSwitchLabel(row.isEnabled as 0 | 1) }}
+                </Tag>
+              </template>
+              <template #toolbar-tools>
+                <Space :size="8" align="center">
+                  <span
+                    v-if="translationSelectedIds.size > 0"
+                    class="text-xs"
+                    style="color: var(--ant-color-text-secondary)"
+                  >
+                    已选
+                    <strong style="color: var(--ant-color-text)">{{
+                      translationSelectedIds.size
+                    }}</strong>
+                    条
+                  </span>
+                  <Button
+                    v-if="translationSelectedIds.size > 0"
+                    size="small"
+                    :loading="bulkLoading.translation"
+                    @click="bulkTranslationAction('enable')"
+                  >
+                    批量启用
+                  </Button>
+                  <Button
+                    v-if="translationSelectedIds.size > 0"
+                    size="small"
+                    :loading="bulkLoading.translation"
+                    @click="bulkTranslationAction('disable')"
+                  >
+                    批量禁用
+                  </Button>
+                  <Popconfirm
+                    v-if="translationSelectedIds.size > 0"
+                    title="确定要删除选中的翻译？"
+                    @confirm="bulkTranslationAction('delete')"
+                  >
+                    <Button
+                      size="small"
+                      danger
+                      ghost
+                      :loading="bulkLoading.translation"
+                    >
+                      批量删除
+                    </Button>
+                  </Popconfirm>
+                  <Button
+                    v-if="translationSelectedIds.size === 0"
+                    type="primary"
+                    @click="openTranslationCreate"
+                  >
+                    新建翻译
+                  </Button>
+                </Space>
+              </template>
+              <template #action="{ row }">
+                <Space>
+                  <Button
+                    type="link"
+                    size="small"
+                    @click="openTranslationEdit(row)"
+                  >
+                    编辑
+                  </Button>
+                  <Button
+                    type="link"
+                    size="small"
+                    danger
+                    @click="
+                      deleteI18nTranslationApi(row.id)
+                        .then(() => translationGridApi.reload())
+                        .then(() => message.success('删除成功'))
+                        .catch((err: Error) =>
+                          message.error(`删除失败：${err.message}`),
+                        )
+                    "
+                  >
+                    删除
+                  </Button>
+                </Space>
+              </template>
+            </TranslationGrid>
+          </template>
         </Card>
       </Col>
     </Row>
@@ -583,7 +867,12 @@ onMounted(async () => {
       :source-row="editingTranslation"
       :default-locale-code="entryLocaleCode ?? 'zh-CN'"
       initial-key=""
-      @success="translationGridApi.reload()"
+      @success="
+        () => {
+          translationGridApi.reload();
+          translationKeyGridApi.reload();
+        }
+      "
     />
   </Page>
 </template>
