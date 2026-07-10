@@ -30,6 +30,24 @@ const routes: RouteRecordRaw[] = [
           title: $t('system.i18n.title'),
         },
       },
+      {
+        name: 'SystemMenu',
+        path: 'menu',
+        component: () => import('#/views/system/menu/index.vue'),
+        meta: {
+          icon: 'lucide:menu',
+          title: $t('system.menu.title'),
+        },
+      },
+      {
+        name: 'SystemApi',
+        path: 'api',
+        component: () => import('#/views/system/api/index.vue'),
+        meta: {
+          icon: 'lucide:terminal',
+          title: $t('system.api.title'),
+        },
+      },
     ],
   },
 ];
