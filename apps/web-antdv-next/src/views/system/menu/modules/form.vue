@@ -391,16 +391,26 @@ function toggleGroup(apis: MenuBindApiItem[], checked: boolean) {
 
           <template v-if="currentType === 'MENU'">
             <div>
-              <FormItem label="路由路径" required>
-                <Input
-                  v-model:value="basicModel.path"
-                  placeholder="如 /admin/users"
+              <FormItem label="排序">
+                <InputNumber
+                  v-model:value="basicModel.sort"
+                  :min="0"
+                  :precision="0"
+                  class="w-full"
                 />
               </FormItem>
             </div>
             <div>
               <FormItem label="图标">
                 <Input v-model:value="basicModel.icon" placeholder="如 user" />
+              </FormItem>
+            </div>
+            <div>
+              <FormItem label="路由路径" required>
+                <Input
+                  v-model:value="basicModel.path"
+                  placeholder="如 /admin/users"
+                />
               </FormItem>
             </div>
             <div>
@@ -411,7 +421,7 @@ function toggleGroup(apis: MenuBindApiItem[], checked: boolean) {
                 />
               </FormItem>
             </div>
-            <div>
+            <div class="col-span-2">
               <FormItem label="重定向">
                 <Input
                   v-model:value="basicModel.redirect"
@@ -438,17 +448,7 @@ function toggleGroup(apis: MenuBindApiItem[], checked: boolean) {
             </FormItem>
           </div>
 
-          <div>
-            <FormItem label="排序">
-              <InputNumber
-                v-model:value="basicModel.sort"
-                :min="0"
-                :precision="0"
-                class="w-full"
-              />
-            </FormItem>
-          </div>
-          <div>
+          <div class="col-span-2">
             <FormItem label="前端隐藏">
               <Switch
                 v-model:checked="basicModel.isHidden"
@@ -459,6 +459,7 @@ function toggleGroup(apis: MenuBindApiItem[], checked: boolean) {
               />
             </FormItem>
           </div>
+
           <div class="col-span-2">
             <FormItem label="状态">
               <Switch
