@@ -394,7 +394,7 @@ function toggleGroup(apis: MenuBindApiItem[], checked: boolean) {
                 v-model:value="basicModel.sort"
                 :min="0"
                 :precision="0"
-                class="w-full"
+                style="width: 100%"
               />
             </FormItem>
           </div>
