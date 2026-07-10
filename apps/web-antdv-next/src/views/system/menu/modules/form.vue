@@ -379,7 +379,7 @@ function toggleGroup(apis: MenuBindApiItem[], checked: boolean) {
               />
             </FormItem>
           </div>
-          <div class="col-span-2">
+          <div>
             <FormItem label="菜单名" required>
               <Input
                 v-model:value="basicModel.name"
@@ -388,18 +388,18 @@ function toggleGroup(apis: MenuBindApiItem[], checked: boolean) {
               />
             </FormItem>
           </div>
+          <div>
+            <FormItem label="排序">
+              <InputNumber
+                v-model:value="basicModel.sort"
+                :min="0"
+                :precision="0"
+                class="w-full"
+              />
+            </FormItem>
+          </div>
 
           <template v-if="currentType === 'MENU'">
-            <div>
-              <FormItem label="排序">
-                <InputNumber
-                  v-model:value="basicModel.sort"
-                  :min="0"
-                  :precision="0"
-                  class="w-full"
-                />
-              </FormItem>
-            </div>
             <div>
               <FormItem label="图标">
                 <Input v-model:value="basicModel.icon" placeholder="如 user" />
