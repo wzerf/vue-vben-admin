@@ -107,15 +107,17 @@ function openEdit(row: SysApi) {
 <template>
   <Page>
     <Grid>
-      <template #toolbar-actions>
-        <Popconfirm
-          title="确认同步"
-          description="将从后端路由清单重新扫描并登记接口（命中则跳过）"
-          @confirm="handleSync"
-        >
-          <Button :loading="syncLoading">同步接口</Button>
-        </Popconfirm>
-        <Button type="primary" @click="openCreate"> + 新增接口 </Button>
+      <template #toolbar-tools>
+        <Space :size="8" align="center">
+          <Popconfirm
+            title="确认同步"
+            description="将从后端路由清单重新扫描并登记接口（命中则跳过）"
+            @confirm="handleSync"
+          >
+            <Button :loading="syncLoading">同步接口</Button>
+          </Popconfirm>
+          <Button type="primary" @click="openCreate"> + 新增接口 </Button>
+        </Space>
       </template>
       <template #method="{ row }">
         <Tag :color="METHOD_COLOR[row.method]">{{ row.method }}</Tag>

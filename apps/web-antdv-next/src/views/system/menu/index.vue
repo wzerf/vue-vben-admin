@@ -4,6 +4,7 @@ import type { SysMenu } from '#/api/system/menu';
 import { ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
+import { IconifyIcon } from '@vben/icons';
 
 import { Button, message, Popconfirm, Space, Tag } from 'antdv-next';
 
@@ -57,6 +58,18 @@ const deleteMut = useDeleteMenu({
     message.error(`删除失败：${err.message ?? '未知错误'}`),
 });
 
+const isExpanded = ref(false);
+
+async function toggleExpandAll() {
+  if (isExpanded.value) {
+    await gridApi.grid.clearTreeExpand();
+    isExpanded.value = false;
+  } else {
+    await gridApi.grid.setAllTreeExpand(true);
+    isExpanded.value = true;
+  }
+}
+
 const [Grid, gridApi] = useVbenVxeGrid<SysMenu>({
   formOptions: {
     collapsed: false,
@@ -71,7 +84,7 @@ const [Grid, gridApi] = useVbenVxeGrid<SysMenu>({
     stripe: true,
     treeConfig: {
       transform: false,
-      expandAll: true,
+      expandAll: false,
     },
     toolbarConfig: {
       custom: true,
@@ -103,8 +116,20 @@ function openEdit(row: SysMenu) {
 <template>
   <Page>
     <Grid>
-      <template #toolbar-actions>
-        <Button type="primary" @click="openCreate(null)"> + 新增菜单 </Button>
+      <template #toolbar-tools>
+        <Space :size="8" align="center">
+          <Button type="primary" @click="openCreate(null)"> + 新增菜单 </Button>
+          <Button @click="toggleExpandAll">
+            <IconifyIcon
+              :icon="
+                isExpanded
+                  ? 'ant-design:up-outlined'
+                  : 'ant-design:down-outlined'
+              "
+            />
+            {{ isExpanded ? '折叠全部' : '展开全部' }}
+          </Button>
+        </Space>
       </template>
       <template #action="{ row }">
         <Space>

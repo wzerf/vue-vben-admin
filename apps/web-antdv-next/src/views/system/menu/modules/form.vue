@@ -492,9 +492,7 @@ function toggleGroup(apis: MenuBindApiItem[], checked: boolean) {
         :placeholder="DEFAULT_METADATA_TEXT"
         class="metadata-editor"
       />
-      <div class="metadata-hint">
-        JSON 格式，用于 vue-vben-admin 等前端框架的路由元信息
-      </div>
+      <div class="metadata-hint">JSON 格式，用于前端框架的路由元信息</div>
     </div>
 
     <div v-show="activeTab === 'bind'">
@@ -505,9 +503,7 @@ function toggleGroup(apis: MenuBindApiItem[], checked: boolean) {
         style="margin-bottom: 12px"
       />
       <div style="margin-bottom: 8px; color: #666">
-        已选 <strong>{{ boundIds.size }}</strong> 个接口 ·
-        修改后点击「保存绑定」写入
-        <Tag>sys_menu_api</Tag>
+        已选 <strong>{{ boundIds.size }}</strong> 个接口
       </div>
       <Collapse :default-active-key="groupedApis.map((g) => g[0])">
         <CollapsePanel v-for="[group, apis] in groupedApis" :key="group">

@@ -629,11 +629,7 @@ function formatUpdatedAt(value: string | undefined): string {
                 </Space>
               </template>
               <template #toolbar-tools>
-                <Button
-                  type="primary"
-                  size="small"
-                  @click="openTranslationCreate"
-                >
+                <Button type="primary" @click="openTranslationCreate">
                   新建翻译
                 </Button>
               </template>
