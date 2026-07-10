@@ -2,10 +2,11 @@
 import type {
   CreateMenuRequest,
   MenuBindApiItem,
+  MenuType,
   SysMenu,
 } from '#/api/system/menu';
 
-import { computed, ref } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 
 import { useVbenDrawer } from '@vben/common-ui';
 
@@ -13,14 +14,19 @@ import {
   Checkbox,
   Collapse,
   CollapsePanel,
+  Form,
+  FormItem,
   Input,
+  InputNumber,
   message,
+  Select,
+  Switch,
   TabPane,
   Tabs,
   Tag,
+  TextArea,
 } from 'antdv-next';
 
-import { useVbenForm } from '#/adapter/form';
 import { fetchAllApisApi } from '#/api/system/api';
 import {
   createMenuApi,
@@ -29,10 +35,7 @@ import {
   setMenuApisApi,
   updateMenuApi,
 } from '#/api/system/menu';
-import {
-  buildParentOptions,
-  useMenuFormSchema,
-} from '#/views/system/menu/data';
+import { buildParentOptions } from '#/views/system/menu/data';
 
 const emits = defineEmits<{
   (e: 'success'): void;
@@ -49,13 +52,103 @@ const apiSearch = ref('');
 const boundIds = ref<Set<number>>(new Set());
 const saving = ref(false);
 
-const [Form, formApi] = useVbenForm({
-  schema: useMenuFormSchema() ?? [],
-  showDefaultActions: false,
+interface BasicFormModel {
+  parentId: null | number;
+  name: string;
+  type: MenuType;
+  path: string;
+  component: string;
+  redirect: string;
+  icon: string;
+  permissionCode: string;
+  sort: number;
+  isHidden: 0 | 1;
+  isEnabled: 0 | 1;
+  remark: string;
+  metadata: string;
+}
+
+const basicModel = reactive<BasicFormModel>({
+  parentId: null,
+  name: '',
+  type: 'MENU',
+  path: '',
+  component: '',
+  redirect: '',
+  icon: '',
+  permissionCode: '',
+  sort: 0,
+  isHidden: 0,
+  isEnabled: 1,
+  remark: '',
+  metadata: '',
 });
 
+const menuTypeOptions = [
+  { label: 'DIR — 目录', value: 'DIR' },
+  { label: 'MENU — 菜单/路由', value: 'MENU' },
+  { label: 'BUTTON — 按钮', value: 'BUTTON' },
+];
+
+const DEFAULT_METADATA_TEXT = JSON.stringify(
+  {
+    badge: '',
+    hideInBreadcrumb: false,
+    keepAlive: true,
+    affix: false,
+    activeMenu: '',
+  },
+  null,
+  2,
+);
+
+function resetBasicModel() {
+  Object.assign(basicModel, {
+    parentId: null,
+    name: '',
+    type: 'MENU',
+    path: '',
+    component: '',
+    redirect: '',
+    icon: '',
+    permissionCode: '',
+    sort: 0,
+    isHidden: 0,
+    isEnabled: 1,
+    remark: '',
+    metadata: '',
+  });
+}
+
+function fillBasicModelFromRow(row: SysMenu) {
+  Object.assign(basicModel, {
+    parentId: row.parentId,
+    name: row.name,
+    type: row.type,
+    path: row.path ?? '',
+    component: row.component ?? '',
+    redirect: row.redirect ?? '',
+    icon: row.icon ?? '',
+    permissionCode: row.permissionCode ?? '',
+    sort: row.sort,
+    isHidden: row.isHidden === 1 ? 1 : 0,
+    isEnabled: row.isEnabled === 1 ? 1 : 0,
+    remark: row.remark ?? '',
+    metadata: row.metadata
+      ? JSON.stringify(JSON.parse(row.metadata), null, 2)
+      : '',
+  });
+}
+
+const currentType = computed(() => basicModel.type);
+
 const [Drawer, drawerApi] = useVbenDrawer({
-  onConfirm: async () => {
+  cancelText: '取消',
+  confirmText: activeTab.value === 'basic' ? '保存' : '保存绑定',
+  onCancel() {
+    drawerApi.close();
+  },
+  async onConfirm() {
     await (activeTab.value === 'basic' ? saveBasic() : saveBind());
   },
   async onOpenChange(isOpen) {
@@ -82,36 +175,11 @@ const [Drawer, drawerApi] = useVbenDrawer({
       editing ? row?.id : undefined,
     );
 
-    // 注入父菜单下拉 options 到 schema
-    formApi.updateSchema([
-      {
-        fieldName: 'parentId',
-        componentProps: {
-          options: parentOptions.value,
-          clearable: true,
-          filterable: true,
-        },
-      },
-    ]);
-
-    formApi.resetForm();
+    resetBasicModel();
 
     if (editing && row) {
       id.value = row.id;
-      await formApi.setValues({
-        parentId: row.parentId,
-        name: row.name,
-        type: row.type,
-        path: row.path ?? '',
-        component: row.component ?? '',
-        redirect: row.redirect,
-        icon: row.icon,
-        permissionCode: row.permissionCode ?? '',
-        sort: row.sort,
-        isHidden: row.isHidden === 1 ? 1 : 0,
-        isEnabled: row.isEnabled === 1 ? 1 : 0,
-        remark: row.remark,
-      });
+      fillBasicModelFromRow(row);
       // 拉已绑定接口
       const bound = await fetchMenuApisApi(row.id);
       allApis.value = bound;
@@ -123,44 +191,65 @@ const [Drawer, drawerApi] = useVbenDrawer({
     } else {
       id.value = undefined;
       const preset = data?.presetParentId ?? null;
-      allApis.value = apis.map((a) => ({ ...a, bound: false }));
-      await formApi.setValues({
+      Object.assign(basicModel, {
         parentId: preset,
-        name: '',
         type: 'MENU',
-        path: '',
-        component: '',
-        redirect: '',
-        icon: '',
-        permissionCode: '',
-        sort: 0,
-        isHidden: 0,
-        isEnabled: 1,
-        remark: '',
       });
+      allApis.value = apis.map((a) => ({ ...a, bound: false }));
     }
   },
 });
 
+// tab 切换时更新确认按钮文案
+watch(activeTab, (tab) => {
+  drawerApi.setState({ confirmText: tab === 'basic' ? '保存' : '保存绑定' });
+});
+
 async function saveBasic() {
-  const { valid } = await formApi.validate();
-  if (!valid) return;
-  const values = await formApi.getValues();
+  // 基础校验
+  if (!basicModel.name.trim()) {
+    message.warning('请输入菜单名');
+    return;
+  }
+  if (basicModel.type === 'MENU' && !basicModel.path.trim()) {
+    message.warning('MENU 必须填写路由路径');
+    return;
+  }
+  if (basicModel.type === 'BUTTON' && !basicModel.permissionCode.trim()) {
+    message.warning('BUTTON 必须填写权限码');
+    return;
+  }
+
+  let metadata: null | string = null;
+  const rawMetadata = basicModel.metadata.trim();
+  if (rawMetadata) {
+    try {
+      metadata = JSON.stringify(JSON.parse(rawMetadata));
+    } catch {
+      message.error('前端扩展 (metadata) 不是合法 JSON');
+      return;
+    }
+  }
+
   const body: CreateMenuRequest = {
-    parentId: (values.parentId as number) ?? null,
-    name: values.name as string,
-    type: values.type as SysMenu['type'],
-    path: values.type === 'MENU' ? (values.path as string) || null : null,
-    component:
-      values.type === 'MENU' ? (values.component as string) || null : null,
-    icon: (values.icon as string) ?? '',
-    redirect: (values.redirect as string) ?? '',
-    permissionCode: (values.permissionCode as string) || null,
-    sort: (values.sort as number) ?? 0,
-    isHidden: values.isHidden ? 1 : 0,
-    isEnabled: values.isEnabled ? 1 : 0,
-    remark: (values.remark as string) ?? '',
+    parentId: basicModel.parentId,
+    name: basicModel.name,
+    type: basicModel.type,
+    path: basicModel.type === 'MENU' ? basicModel.path || null : null,
+    component: basicModel.type === 'MENU' ? basicModel.component || null : null,
+    icon: basicModel.icon,
+    redirect: basicModel.redirect,
+    permissionCode:
+      basicModel.type === 'BUTTON' || basicModel.type === 'MENU'
+        ? basicModel.permissionCode || null
+        : null,
+    metadata,
+    sort: basicModel.sort,
+    isHidden: basicModel.isHidden ? 1 : 0,
+    isEnabled: basicModel.isEnabled ? 1 : 0,
+    remark: basicModel.remark,
   };
+
   saving.value = true;
   try {
     if (isEdit.value && id.value) {
@@ -223,16 +312,29 @@ const METHOD_COLOR: Record<string, string> = {
   HEAD: 'default',
 };
 
-function toggleApi(id: number, checked: boolean) {
+function toggleApi(apiId: number, checked: boolean) {
   const next = new Set(boundIds.value);
-  if (checked) next.add(id);
-  else next.delete(id);
+  if (checked) next.add(apiId);
+  else next.delete(apiId);
+  boundIds.value = next;
+}
+
+function toggleGroup(apis: MenuBindApiItem[], checked: boolean) {
+  const next = new Set(boundIds.value);
+  apis.forEach((a) => {
+    if (checked) next.add(a.id);
+    else next.delete(a.id);
+  });
   boundIds.value = next;
 }
 </script>
 
 <template>
-  <Drawer :title="isEdit ? '编辑菜单' : '新增菜单'" :confirm-loading="saving">
+  <Drawer
+    :title="isEdit ? '编辑菜单' : '新增菜单'"
+    :confirm-loading="saving"
+    :width="640"
+  >
     <Tabs v-model:active-key="activeTab">
       <TabPane key="basic" tab="基础信息" />
       <TabPane
@@ -242,7 +344,157 @@ function toggleApi(id: number, checked: boolean) {
       />
     </Tabs>
 
-    <Form v-show="activeTab === 'basic'" />
+    <div v-show="activeTab === 'basic'" class="menu-basic-form">
+      <div class="section-title">
+        基础（{{
+          currentType === 'DIR'
+            ? '目录'
+            : currentType === 'MENU'
+              ? '菜单'
+              : '按钮'
+        }}）
+      </div>
+
+      <Form layout="vertical">
+        <div class="form-grid">
+          <div>
+            <FormItem label="父菜单">
+              <Select
+                v-model:value="basicModel.parentId"
+                :options="parentOptions"
+                :filter-option="true"
+                allow-clear
+                placeholder="— 顶级 —"
+                show-search
+                style="width: 100%"
+              />
+            </FormItem>
+          </div>
+          <div>
+            <FormItem label="类型" required>
+              <Select
+                v-model:value="basicModel.type"
+                :options="menuTypeOptions"
+                style="width: 100%"
+              />
+            </FormItem>
+          </div>
+          <div class="col-span-2">
+            <FormItem label="菜单名" required>
+              <Input
+                v-model:value="basicModel.name"
+                :maxlength="64"
+                placeholder="如 用户管理"
+              />
+            </FormItem>
+          </div>
+
+          <template v-if="currentType === 'MENU'">
+            <div>
+              <FormItem label="路由路径" required>
+                <Input
+                  v-model:value="basicModel.path"
+                  placeholder="如 /admin/users"
+                />
+              </FormItem>
+            </div>
+            <div>
+              <FormItem label="图标">
+                <Input v-model:value="basicModel.icon" placeholder="如 user" />
+              </FormItem>
+            </div>
+            <div>
+              <FormItem label="前端组件">
+                <Input
+                  v-model:value="basicModel.component"
+                  placeholder="如 views/admin/users/index"
+                />
+              </FormItem>
+            </div>
+            <div>
+              <FormItem label="重定向">
+                <Input
+                  v-model:value="basicModel.redirect"
+                  placeholder="如 /admin/users/list"
+                />
+              </FormItem>
+            </div>
+            <div class="col-span-2">
+              <FormItem label="权限码">
+                <Input
+                  v-model:value="basicModel.permissionCode"
+                  placeholder="如 admin:user:list"
+                />
+              </FormItem>
+            </div>
+          </template>
+
+          <div v-if="currentType === 'BUTTON'" class="col-span-2">
+            <FormItem label="权限码" required>
+              <Input
+                v-model:value="basicModel.permissionCode"
+                placeholder="如 admin:user:create"
+              />
+            </FormItem>
+          </div>
+
+          <div>
+            <FormItem label="排序">
+              <InputNumber
+                v-model:value="basicModel.sort"
+                :min="0"
+                :precision="0"
+                class="w-full"
+              />
+            </FormItem>
+          </div>
+          <div>
+            <FormItem label="前端隐藏">
+              <Switch
+                v-model:checked="basicModel.isHidden"
+                :checked-value="1"
+                :un-checked-value="0"
+                checked-children="隐藏"
+                un-checked-children="显示"
+              />
+            </FormItem>
+          </div>
+          <div class="col-span-2">
+            <FormItem label="状态">
+              <Switch
+                v-model:checked="basicModel.isEnabled"
+                :checked-value="1"
+                :un-checked-value="0"
+                checked-children="启用"
+                un-checked-children="禁用"
+              />
+            </FormItem>
+          </div>
+          <div class="col-span-2">
+            <FormItem label="备注">
+              <TextArea
+                v-model:value="basicModel.remark"
+                :auto-size="{ minRows: 3 }"
+                placeholder="选填"
+              />
+            </FormItem>
+          </div>
+        </div>
+      </Form>
+
+      <div class="section-title" style="margin-top: 24px">
+        前端扩展（METADATA）
+      </div>
+      <TextArea
+        v-model:value="basicModel.metadata"
+        :auto-size="{ minRows: 8 }"
+        :placeholder="DEFAULT_METADATA_TEXT"
+        class="metadata-editor"
+      />
+      <div class="metadata-hint">
+        JSON 格式，用于 vue-vben-admin 等前端框架的路由元信息
+      </div>
+    </div>
 
     <div v-show="activeTab === 'bind'">
       <Input
@@ -253,15 +505,25 @@ function toggleApi(id: number, checked: boolean) {
       />
       <div style="margin-bottom: 8px; color: #666">
         已选 <strong>{{ boundIds.size }}</strong> 个接口 ·
-        修改后点击「确定」写入
+        修改后点击「保存绑定」写入
         <Tag>sys_menu_api</Tag>
       </div>
       <Collapse :default-active-key="groupedApis.map((g) => g[0])">
-        <CollapsePanel
-          v-for="[group, apis] in groupedApis"
-          :key="group"
-          :header="`${group} · ${apis.length} 个`"
-        >
+        <CollapsePanel v-for="[group, apis] in groupedApis" :key="group">
+          <template #header>
+            <div class="group-header">
+              <span>{{ group }} · {{ apis.length }} 个</span>
+              <Checkbox
+                :checked="
+                  apis.length > 0 && apis.every((a) => boundIds.has(a.id))
+                "
+                @change="(e: any) => toggleGroup(apis, e.target.checked)"
+                @click.stop
+              >
+                全选
+              </Checkbox>
+            </div>
+          </template>
           <div style="display: flex; flex-direction: column; gap: 6px">
             <Checkbox
               v-for="a in apis"
@@ -285,3 +547,41 @@ function toggleApi(id: number, checked: boolean) {
     </div>
   </Drawer>
 </template>
+
+<style scoped>
+.section-title {
+  margin-bottom: 16px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #94a3b8;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 16px;
+}
+
+.col-span-2 {
+  grid-column: span 2;
+}
+
+.metadata-editor {
+  font-family: ui-monospace, 'JetBrains Mono', 'Cascadia Code', monospace;
+  font-size: 12px;
+}
+
+.metadata-hint {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding-right: 16px;
+}
+</style>

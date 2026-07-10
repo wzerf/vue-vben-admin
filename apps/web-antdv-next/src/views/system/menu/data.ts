@@ -1,8 +1,5 @@
-import type { VbenFormProps } from '#/adapter/form';
 import type { VxeTableGridOptions } from '#/adapter/vxe-table';
 import type { SysMenu } from '#/api/system/menu';
-
-import { z } from '#/adapter/form';
 
 /* ============================================================
  * 菜单类型 / 状态 常量
@@ -45,7 +42,12 @@ export function useMenuColumns(): VxeTableGridOptions['columns'] {
 /* ============================================================
  * 搜索 schema
  * ============================================================ */
-export function useMenuSearchSchema(): VbenFormProps['schema'] {
+export function useMenuSearchSchema(): Array<{
+  component: string;
+  componentProps?: Record<string, any>;
+  fieldName: string;
+  label: string;
+}> {
   return [
     {
       component: 'Input',
@@ -83,95 +85,8 @@ export function useMenuSearchSchema(): VbenFormProps['schema'] {
 }
 
 /* ============================================================
- * 基础信息 form schema（抽屉内，不包含「绑定接口」tab，绑定接口用独立 Checkbox）
+ * 把扁平菜单组树（供父菜单下拉用 label 带缩进）
  * ============================================================ */
-export function useMenuFormSchema(): VbenFormProps['schema'] {
-  return [
-    {
-      component: 'Select',
-      fieldName: 'parentId',
-      label: '父菜单',
-      componentProps: {
-        // options 由 form.vue 注入（父菜单树）
-        options: [] as Array<{ label: string; value: number }>,
-        clearable: true,
-        filterable: true,
-        placeholder: '— 顶级 —',
-      },
-    },
-    {
-      component: 'Select',
-      fieldName: 'type',
-      label: '类型',
-      defaultValue: 'MENU',
-      rules: z.string().min(1, '请选择类型'),
-      componentProps: { options: MENU_TYPE_OPTIONS },
-    },
-    {
-      component: 'Input',
-      fieldName: 'name',
-      label: '菜单名',
-      rules: z.string().min(1, '请输入菜单名').max(64, '最长 64 字符'),
-      componentProps: { placeholder: '如 用户管理' },
-    },
-    {
-      component: 'Input',
-      fieldName: 'path',
-      label: '路由路径',
-      componentProps: { placeholder: '如 /admin/users' },
-    },
-    {
-      component: 'Input',
-      fieldName: 'component',
-      label: '前端组件',
-      componentProps: { placeholder: '如 views/admin/users/index' },
-    },
-    {
-      component: 'Input',
-      fieldName: 'redirect',
-      label: '重定向',
-      componentProps: { placeholder: '如 /admin/users/list' },
-    },
-    {
-      component: 'Input',
-      fieldName: 'icon',
-      label: '图标',
-      componentProps: { placeholder: '如 user' },
-    },
-    {
-      component: 'Input',
-      fieldName: 'permissionCode',
-      label: '权限码',
-      componentProps: { placeholder: '如 admin:user:list' },
-    },
-    {
-      component: 'InputNumber',
-      fieldName: 'sort',
-      label: '排序',
-      defaultValue: 0,
-      componentProps: { min: 0 },
-    },
-    {
-      component: 'Switch',
-      fieldName: 'isHidden',
-      label: '前端隐藏',
-      defaultValue: 0,
-    },
-    {
-      component: 'Switch',
-      fieldName: 'isEnabled',
-      label: '状态',
-      defaultValue: 1,
-    },
-    {
-      component: 'Textarea',
-      fieldName: 'remark',
-      label: '备注',
-      componentProps: { placeholder: '选填', rows: 3 },
-    },
-  ];
-}
-
 /** 把扁平菜单组树（供父菜单下拉用 label 带缩进） */
 export function buildParentOptions(
   menus: SysMenu[],
