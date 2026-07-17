@@ -12,6 +12,8 @@ export const overridesPreferences = defineOverridesPreferences({
   // overrides
   app: {
     name: import.meta.env.VITE_APP_TITLE,
+    // 从环境变量读取菜单模式，默认前端静态菜单
+    accessMode: import.meta.env.VITE_ACCESS_MODE || 'frontend',
   },
   copyright: appCopyrightPreferences,
 });
