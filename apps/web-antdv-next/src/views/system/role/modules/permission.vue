@@ -3,6 +3,7 @@ import type { SysMenu } from '#/api/system/menu';
 import type { RoleApiBindItem, RoleMenuBindItem } from '#/api/system/role';
 
 import { computed, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { useVbenDrawer } from '@vben/common-ui';
 
@@ -23,10 +24,13 @@ import {
   setRoleApisApi,
   setRoleMenusApi,
 } from '#/api/system/role';
+import { refreshAccess } from '#/router/refresh-access';
 
 const emits = defineEmits<{
   (e: 'success'): void;
 }>();
+
+const router = useRouter();
 
 const roleId = ref(0);
 const roleName = ref('');
@@ -89,6 +93,7 @@ async function save() {
     if (activeTab.value === 'menu') {
       await setRoleMenusApi(roleId.value, [...checkedMenuIds.value]);
       message.success('菜单授权已保存');
+      await refreshAccess(router);
     } else if (activeTab.value === 'api') {
       await setRoleApisApi(roleId.value, [...checkedApiIds.value]);
       message.success('接口授权已保存');

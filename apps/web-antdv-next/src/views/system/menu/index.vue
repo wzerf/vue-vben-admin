@@ -2,6 +2,7 @@
 import type { SysMenu } from '#/api/system/menu';
 
 import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { IconifyIcon } from '@vben/icons';
@@ -11,6 +12,7 @@ import { Button, message, Popconfirm, Space, Tag } from 'antdv-next';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { fetchMenuListApi } from '#/api/system/menu';
 import { useDeleteMenu } from '#/api/system/menu/hooks';
+import { refreshAccess } from '#/router/refresh-access';
 import {
   buildMenuTree,
   MENU_TYPE_TAG,
@@ -20,6 +22,8 @@ import {
 import MenuForm from '#/views/system/menu/modules/form.vue';
 
 defineOptions({ name: 'SystemMenu' });
+
+const router = useRouter();
 
 const [FormDrawer, formDrawerApi] = useVbenDrawer({
   connectedComponent: MenuForm,
@@ -50,9 +54,10 @@ async function loadTree(formValues: Record<string, any> = {}) {
 }
 
 const deleteMut = useDeleteMenu({
-  onSuccess: () => {
+  onSuccess: async () => {
     message.success('删除成功');
     gridApi.query();
+    await refreshAccess(router);
   },
   onError: (err: Error) =>
     message.error(`删除失败：${err.message ?? '未知错误'}`),
@@ -111,6 +116,11 @@ function openEdit(row: SysMenu) {
   drawerData.value = { mode: 'edit', row };
   formDrawerApi.setData(drawerData.value).open();
 }
+
+async function onMenuSaved() {
+  gridApi.query();
+  await refreshAccess(router);
+}
 </script>
 
 <template>
@@ -149,6 +159,6 @@ function openEdit(row: SysMenu) {
         </Tag>
       </template>
     </Grid>
-    <FormDrawer @success="gridApi.query()" />
+    <FormDrawer @success="onMenuSaved" />
   </Page>
 </template>
