@@ -35,7 +35,7 @@ export function useMenuColumns(): VxeTableGridOptions['columns'] {
     { field: 'icon', title: '图标', width: 80 },
     { field: 'sort', title: '排序', width: 70 },
     { field: 'isEnabled', title: '状态', width: 80 },
-    { title: '操作', fixed: 'right', width: 200, slots: { default: 'action' } },
+    { title: '操作', fixed: 'right', width: 250, slots: { default: 'action' } },
   ];
 }
 

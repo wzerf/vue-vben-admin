@@ -11,7 +11,7 @@ import { Button, message, Popconfirm, Space, Tag } from 'antdv-next';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { fetchMenuListApi } from '#/api/system/menu';
-import { useDeleteMenu } from '#/api/system/menu/hooks';
+import { useDeleteMenu, useUpdateMenu } from '#/api/system/menu/hooks';
 import { refreshAccess } from '#/router/refresh-access';
 import {
   buildMenuTree,
@@ -61,6 +61,16 @@ const deleteMut = useDeleteMenu({
   },
   onError: (err: Error) =>
     message.error(`删除失败：${err.message ?? '未知错误'}`),
+});
+
+const toggleMut = useUpdateMenu({
+  onSuccess: async (_data, vars) => {
+    message.success(vars.data.isEnabled === 1 ? '已启用' : '已禁用');
+    gridApi.query();
+    await refreshAccess(router);
+  },
+  onError: (err: Error) =>
+    message.error(`操作失败：${err.message ?? '未知错误'}`),
 });
 
 const isExpanded = ref(false);
@@ -117,6 +127,13 @@ function openEdit(row: SysMenu) {
   formDrawerApi.setData(drawerData.value).open();
 }
 
+function toggleStatus(row: SysMenu) {
+  toggleMut.mutate({
+    id: row.id,
+    data: { isEnabled: row.isEnabled === 1 ? 0 : 1 },
+  });
+}
+
 async function onMenuSaved() {
   gridApi.query();
   await refreshAccess(router);
@@ -145,6 +162,9 @@ async function onMenuSaved() {
         <Space>
           <a @click="openEdit(row)">编辑</a>
           <a v-if="row.type !== 'BUTTON'" @click="openCreate(row.id)">添加子项</a>
+          <a @click="toggleStatus(row)">
+            {{ row.isEnabled === 1 ? '禁用' : '启用' }}
+          </a>
           <Popconfirm title="确认删除" @confirm="deleteMut.mutate(row.id)">
             <a style="color: #ff4d4f">删除</a>
           </Popconfirm>
