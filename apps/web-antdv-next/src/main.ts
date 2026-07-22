@@ -1,7 +1,15 @@
-import { initPreferences } from '@vben/preferences';
+import { initPreferences, updatePreferences } from '@vben/preferences';
 import { unmountGlobalLoading } from '@vben/utils';
 
 import { overridesPreferences } from './preferences';
+
+/** 部署级菜单模式：以 VITE_ACCESS_MODE 为准，覆盖 localStorage 历史值 */
+function applyEnvAccessMode() {
+  const mode = import.meta.env.VITE_ACCESS_MODE;
+  if (mode === 'backend' || mode === 'frontend' || mode === 'mixed') {
+    updatePreferences({ app: { accessMode: mode } });
+  }
+}
 
 /**
  * 应用初始化完成之后再进行页面加载渲染
@@ -18,6 +26,8 @@ async function initApplication() {
     namespace,
     overrides: overridesPreferences,
   });
+  // 缓存合并后强制写回 env 的 accessMode，避免历史 frontend 导致永不请求 /menu/all
+  applyEnvAccessMode();
 
   // 启动应用并挂载
   // vue应用主要逻辑及视图
