@@ -136,7 +136,8 @@ interface AppPreferences {
   /** 是否显示偏好设置 */
   enablePreferences: boolean;
   /**
-   * @zh_CN 是否开启refreshToken
+   * @zh_CN 是否开启 refreshToken（兼容字段，保留）
+   * 单 token（sa-token）模式下不再使用客户端 refresh，request 层忽略此开关
    */
   enableRefreshToken: boolean;
   /**

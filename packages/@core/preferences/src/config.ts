@@ -22,6 +22,9 @@ const defaultPreferences: Preferences = {
     enableCheckUpdates: true,
     enableCopyPreferences: true,
     enablePreferences: true,
+    /**
+     * 单 token（sa-token）模式下默认关闭；request 不再据此做客户端 refresh
+     */
     enableRefreshToken: false,
     enableStickyPreferencesNavigationBar: true,
     isMobile: false,
