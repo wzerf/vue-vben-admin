@@ -1,5 +1,6 @@
 import type { VbenFormProps } from '#/adapter/form';
 import type { VxeTableGridOptions } from '#/adapter/vxe-table';
+import type { SysApi } from '#/api/system/api';
 
 import { z } from '#/adapter/form';
 
@@ -31,22 +32,29 @@ export const API_STATUS_OPTIONS = [
   { label: '禁用', value: 0 },
 ];
 
+/** 分组树节点：父行为合成分组，子行为真实接口 */
+export type ApiTreeNode = {
+  children?: ApiTreeNode[];
+  isGroup?: boolean;
+  /** 稳定行 key：分组用 group:xxx，叶子用数字 id */
+  rowKey: string;
+} & SysApi;
+
 /* ============================================================
- * 接口列表列定义（vxe-grid 分页）
+ * 接口列表列定义（vxe-grid 分组树）
  * ============================================================ */
 export function useApiColumns(): VxeTableGridOptions['columns'] {
   return [
-    { type: 'checkbox', width: 44 },
-    { field: 'id', title: 'ID', width: 70 },
-    { field: 'name', title: '接口名', minWidth: 160 },
+    // 树形展开列：分组父行展示组名，子行展示接口名（勿自定义 default slot，以免丢展开图标）
+    { field: 'name', title: '接口名', treeNode: true, minWidth: 200 },
+    { field: 'id', title: 'ID', width: 70, slots: { default: 'id' } },
     { field: 'method', title: '方法', width: 90, slots: { default: 'method' } },
-    { field: 'path', title: '路径', minWidth: 220 },
-    { field: 'permissionCode', title: '权限码', minWidth: 160 },
+    { field: 'path', title: '路径', minWidth: 220, slots: { default: 'path' } },
     {
-      field: 'apiGroup',
-      title: '分组',
-      width: 110,
-      slots: { default: 'group' },
+      field: 'permissionCode',
+      title: '权限码',
+      minWidth: 160,
+      slots: { default: 'permissionCode' },
     },
     {
       field: 'isEnabled',
@@ -54,7 +62,12 @@ export function useApiColumns(): VxeTableGridOptions['columns'] {
       width: 80,
       slots: { default: 'isEnabled' },
     },
-    { field: 'createdAt', title: '创建时间', width: 170 },
+    {
+      field: 'createdAt',
+      title: '创建时间',
+      width: 170,
+      slots: { default: 'createdAt' },
+    },
     { title: '操作', fixed: 'right', width: 140, slots: { default: 'action' } },
   ];
 }
@@ -159,4 +172,50 @@ export function useApiFormSchema(): VbenFormProps['schema'] {
       defaultValue: true,
     },
   ];
+}
+
+/* ============================================================
+ * 按 apiGroup 合成分组树（供 vxe-grid 树形折叠）
+ * 空分组名归为「未分组」；仅在当前查询结果内组树，不跨页拼组。
+ * ============================================================ */
+export function buildApiGroupTree(list: SysApi[]): ApiTreeNode[] {
+  const groups = new Map<string, SysApi[]>();
+  list.forEach((a) => {
+    const g = a.apiGroup?.trim() || '未分组';
+    const arr = groups.get(g) ?? [];
+    arr.push(a);
+    groups.set(g, arr);
+  });
+
+  // 分组父节点使用负 id，避免与真实接口 id 冲突
+  let groupSeq = -1;
+
+  return [...groups.entries()]
+    .toSorted((a, b) => a[0].localeCompare(b[0], 'zh-CN'))
+    .map(([groupName, apis]) => {
+      const children: ApiTreeNode[] = [...apis]
+        .toSorted((a, b) => a.id - b.id)
+        .map((a) => ({
+          ...a,
+          rowKey: String(a.id),
+        }));
+
+      const parentId = groupSeq--;
+      return {
+        id: parentId,
+        name: `${groupName}（${children.length}）`,
+        method: 'GET',
+        path: '',
+        permissionCode: '',
+        apiGroup: groupName,
+        remark: '',
+        isEnabled: 1,
+        deletedAt: 0,
+        createdAt: '',
+        updatedAt: '',
+        isGroup: true,
+        rowKey: `group:${groupName}`,
+        children,
+      } satisfies ApiTreeNode;
+    });
 }
