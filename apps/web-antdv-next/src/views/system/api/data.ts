@@ -155,7 +155,8 @@ export function useApiFormSchema(): VbenFormProps['schema'] {
       component: 'Switch',
       fieldName: 'isEnabled',
       label: '启用',
-      defaultValue: 1,
+      // Switch checked 用 boolean；提交时再映射 0|1
+      defaultValue: true,
     },
   ];
 }

@@ -6,7 +6,7 @@ import type {
   SysMenu,
 } from '#/api/system/menu';
 
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, nextTick, reactive, ref, watch } from 'vue';
 
 import { useVbenDrawer } from '@vben/common-ui';
 
@@ -120,6 +120,16 @@ function resetBasicModel() {
   });
 }
 
+/** metadata 安全美化：非法 JSON 原样回显，避免抛错导致整表空白 */
+function formatMetadataForForm(raw: null | string | undefined): string {
+  if (!raw) return '';
+  try {
+    return JSON.stringify(JSON.parse(raw), null, 2);
+  } catch {
+    return raw;
+  }
+}
+
 function fillBasicModelFromRow(row: SysMenu) {
   Object.assign(basicModel, {
     parentId: row.parentId,
@@ -134,9 +144,7 @@ function fillBasicModelFromRow(row: SysMenu) {
     isHidden: row.isHidden === 1 ? 1 : 0,
     isEnabled: row.isEnabled === 1 ? 1 : 0,
     remark: row.remark ?? '',
-    metadata: row.metadata
-      ? JSON.stringify(JSON.parse(row.metadata), null, 2)
-      : '',
+    metadata: formatMetadataForForm(row.metadata),
   });
 }
 
@@ -165,6 +173,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
     const row = data?.mode === 'edit' ? data.row : undefined;
     const editing = !!row;
 
+    // 先重置再回填，避免上次残留；await 选项加载后再 fill，保证 Select 能匹配 value
+    resetBasicModel();
+
     // 拉父菜单与接口清单
     const [menus, apis] = await Promise.all([
       fetchAllMenusApi(),
@@ -175,7 +186,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
       editing ? row?.id : undefined,
     );
 
-    resetBasicModel();
+    // 选项写入 DOM 后再赋 model，避免父菜单/类型 Select 不回显
+    await nextTick();
 
     if (editing && row) {
       id.value = row.id;

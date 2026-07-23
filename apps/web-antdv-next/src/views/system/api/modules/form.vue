@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { CreateApiRequest, SysApi } from '#/api/system/api';
 
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 
 import { useVbenDrawer } from '@vben/common-ui';
 
@@ -40,6 +40,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
       permissionCode: values.permissionCode as string,
       apiGroup: (values.apiGroup as string) ?? '',
       remark: (values.remark as string) ?? '',
+      // Switch 存 boolean，提交时映射 0|1
       isEnabled: values.isEnabled ? 1 : 0,
     };
     saving.value = true;
@@ -65,33 +66,43 @@ const [Drawer, drawerApi] = useVbenDrawer({
     const row = data?.row;
     const editing = !!row;
 
-    // 拉分组，注入到 apiGroup 字段（用 AutoComplete-like：这里用普通 Input，前端输入即可）
+    // 拉分组（apiGroup 仍为 Input 自由填写）
     await fetchApiGroupsApi().catch(() => [] as string[]);
 
     formApi.resetForm();
+    // 等 schema 字段挂到 form.values 后再 setValues，避免 filterFields 合并成空对象
+    await nextTick();
 
     if (editing && row) {
       id.value = row.id;
-      await formApi.setValues({
-        name: row.name,
-        method: row.method,
-        apiGroup: row.apiGroup,
-        path: row.path,
-        permissionCode: row.permissionCode,
-        remark: row.remark,
-        isEnabled: row.isEnabled === 1 ? 1 : 0,
-      });
+      // filterFields=false：直接写入，不依赖 form.values 已有 key
+      // isEnabled 用 boolean，与 dict / Switch checked 对齐
+      await formApi.setValues(
+        {
+          name: row.name,
+          method: row.method,
+          apiGroup: row.apiGroup,
+          path: row.path,
+          permissionCode: row.permissionCode,
+          remark: row.remark,
+          isEnabled: row.isEnabled === 1,
+        },
+        false,
+      );
     } else {
       id.value = undefined;
-      await formApi.setValues({
-        name: '',
-        method: 'GET',
-        apiGroup: '',
-        path: '',
-        permissionCode: '',
-        remark: '',
-        isEnabled: 1,
-      });
+      await formApi.setValues(
+        {
+          name: '',
+          method: 'GET',
+          apiGroup: '',
+          path: '',
+          permissionCode: '',
+          remark: '',
+          isEnabled: true,
+        },
+        false,
+      );
     }
   },
 });
