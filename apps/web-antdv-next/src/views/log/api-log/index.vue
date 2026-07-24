@@ -3,7 +3,7 @@ import type { ApiLogListItem, ApiLogSource } from '#/api/system/api-log';
 
 import { ref } from 'vue';
 
-import { Page, useVbenDrawer } from '@vben/common-ui';
+import { useVbenDrawer } from '@vben/common-ui';
 
 import { Segmented, Tag } from 'antdv-next';
 
@@ -105,7 +105,7 @@ function onSourceChange(val: number | string) {
 </script>
 
 <template>
-  <Page auto-content-height>
+  <div>
     <div class="mb-3">
       <Segmented
         :value="source"
@@ -127,5 +127,5 @@ function onSourceChange(val: number | string) {
       </template>
     </Grid>
     <DetailDrawer />
-  </Page>
+  </div>
 </template>

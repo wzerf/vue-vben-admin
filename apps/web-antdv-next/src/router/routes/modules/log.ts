@@ -2,37 +2,21 @@ import type { RouteRecordRaw } from 'vue-router';
 
 import { $t } from '#/locales';
 
+/**
+ * 日志审计：侧栏单菜单，点击直接进入 /log，页内 Tab 切换登录日志 / API 日志。
+ */
 const routes: RouteRecordRaw[] = [
   {
     meta: {
       icon: 'lucide:logs',
       order: 2004,
       title: $t('log.title'),
+      // 页内 ?tab= 切换不应在顶栏再开一个「日志审计」标签
+      fullPathKey: false,
     },
     name: 'Log',
     path: '/log',
-    children: [
-      {
-        name: 'LogLoginLog',
-        path: 'login-log',
-        component: () => import('#/views/log/login-log/index.vue'),
-        meta: {
-          icon: 'lucide:user-lock',
-          order: 1,
-          title: $t('log.loginLog.title'),
-        },
-      },
-      {
-        name: 'LogApiLog',
-        path: 'api-log',
-        component: () => import('#/views/log/api-log/index.vue'),
-        meta: {
-          icon: 'lucide:file-clock',
-          order: 2,
-          title: $t('log.apiLog.title'),
-        },
-      },
-    ],
+    component: () => import('#/views/log/index.vue'),
   },
 ];
 
