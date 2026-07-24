@@ -22,6 +22,16 @@ const routes: RouteRecordRaw[] = [
           title: $t('log.loginLog.title'),
         },
       },
+      {
+        name: 'LogApiLog',
+        path: 'api-log',
+        component: () => import('#/views/log/api-log/index.vue'),
+        meta: {
+          icon: 'lucide:file-clock',
+          order: 2,
+          title: $t('log.apiLog.title'),
+        },
+      },
     ],
   },
 ];
